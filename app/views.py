@@ -6,11 +6,25 @@ from rest_framework.response import Response
 from django.http import HttpResponse
 from django.core.exceptions import ValidationError
 from rest_framework import status
-from .models import (Category, SubCategory, Product, Pricing, ProductSpesfication)
+from .models import (Category, SubCategory, Product, Pricing, ProductSpesfication, UserProfile)
 from .serializers import (CategorySerializer, SubCategorySerializer,
                            ProductSerializer, PricingSerializer,
-                             ProductSpesficationSerializer )
+                             ProductSpesficationSerializer , UserSerializer)
 
+from rest_framework.decorators import api_view
+
+
+@api_view(['POST'])
+def register(request):
+    user_serializer = UserSerializer(data=request.data)
+    if user_serializer.is_valid():
+        user = user_serializer.save()
+        # Create the user profile
+        kind = request.data.get('kind')
+        if kind:
+            UserProfile.objects.create(user=user, kind=kind)
+        return Response(user_serializer.data, status=status.HTTP_201_CREATED)
+    return Response(user_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class CategoryViewset(viewsets.ModelViewSet):
     queryset = Category.objects.all()
@@ -57,6 +71,26 @@ class SubCategoryViewset(viewsets.ModelViewSet):
     queryset = SubCategory.objects.all()
     serializer_class = SubCategorySerializer
 
+    @action(detail=True, methods=['get'], url_name='get_product_detail', url_path='get_product_detail')
+    def get_product_detail(self, request, pk=None):
+        product_id = request.query_params.get('product_id')
+        if not product_id:
+            return Response({'error': 'Product ID is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            subcategory = SubCategory.objects.get(pk=pk)
+        except SubCategory.DoesNotExist:
+            return Response({'error': 'SubCategory not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            product = Product.objects.get(pk=product_id, subcategory=subcategory)
+        except Product.DoesNotExist:
+            return Response({'error': 'Product not found in this subcategory.'}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = ProductSerializer(product)
+        return Response(serializer.data)
+    
+    
     @action(detail=True, methods=['get'], url_name='get_product', url_path='get_product')
     def get_product(self, request, pk=None):
         try:
