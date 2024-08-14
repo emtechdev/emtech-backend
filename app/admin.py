@@ -4,3 +4,4 @@ from .models import Category, SubCategory, Product, Pricing, ProductSpesfication
 
 admin.site.register(Category)
 admin.site.register(SubCategory)
+admin.site.register(Product)
