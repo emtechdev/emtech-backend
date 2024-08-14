@@ -1,4 +1,3 @@
-from django.shortcuts import render
 from rest_framework import  viewsets
 from rest_framework.views import APIView
 from rest_framework.decorators import action
@@ -19,7 +18,6 @@ def register(request):
     user_serializer = UserSerializer(data=request.data)
     if user_serializer.is_valid():
         user = user_serializer.save()
-        # Create the user profile
         kind = request.data.get('kind')
         if kind:
             UserProfile.objects.create(user=user, kind=kind)
@@ -153,13 +151,11 @@ class ProductViewset(viewsets.ModelViewSet):
         if pk is None:
             return Response({'error': 'Product ID is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Fetch the product
         try:
             product = Product.objects.get(pk=pk)
         except Product.DoesNotExist:
             return Response({'error': 'Product not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-        # Retrieve pricing data from the request
         pricing_data = {
             'eg_buy_price': request.data.get('eg_buy_price'),
             'eg_cost': request.data.get('eg_cost'),
@@ -183,8 +179,10 @@ class ProductViewset(viewsets.ModelViewSet):
         try:
             pricing = Pricing.objects.create(product=product, **pricing_data)
         except ValidationError as e:
+            print(str(e))
             return Response({'error': f'Validation error: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
+            print(str(e))
             return Response({'error': f'Failed to create Pricing: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         return Response({'success': 'Pricing added successfully.'}, status=status.HTTP_201_CREATED)
