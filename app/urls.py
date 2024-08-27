@@ -15,6 +15,8 @@ router.register('subcategory', views.SubCategoryViewset, 'subcategory')
 router.register('product', views.ProductViewset, 'product')
 router.register('productspecfication', views.ProductSpesficationViewset, 'productspecfication')
 router.register('product_pricing', views.PricingViewset, 'product_pricing')
+router.register('file', views.FileViewset, 'file')
+
 
 
 urlpatterns = [
@@ -22,6 +24,8 @@ urlpatterns = [
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('register/', views.register),
+    path('users/',views.UserListView.as_view(), name='user_list'),
+
 
 ]
 

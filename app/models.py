@@ -19,22 +19,27 @@ class UserProfile(models.Model):
 
     
 class Category(models.Model):
-    name = models.CharField(max_length=255)
+    name = models.CharField(max_length=255, unique=True)
 
     def __str__(self):
         return self.name
     
 
 class SubCategory(models.Model):
-    name = models.CharField(max_length=255)
+    name = models.CharField(max_length=255, unique=True)
     category = models.ForeignKey(Category, on_delete=models.CASCADE)
 
     def __str__(self):
         return self.name
     
 
+class File(models.Model):
+    file = models.FileField()
+
+
 class Product(models.Model):
     subcategory = models.ForeignKey(SubCategory, on_delete=models.CASCADE)
+    file = models.ForeignKey(File, on_delete=models.CASCADE, null=True, blank=True)
     name = models.CharField(max_length=255, unique=True)
     series = models.CharField(max_length=255)
     manfacturer = models.CharField(max_length=255)
@@ -49,8 +54,11 @@ class Product(models.Model):
         return self.name
     
 
+
+    
 class Pricing(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    time = models.DateTimeField(auto_now_add=True, null= True, blank=True)
     eg_buy_price = models.IntegerField()
     eg_cost = models.IntegerField()
     eg_profit = models.IntegerField()
@@ -74,9 +82,7 @@ class Pricing(models.Model):
         return self.tr_buy_price * self.tr_profit * self.tr_cost
     
 
-    def __str__(self):
-        return self.size
-    
+
 class ProductSpesfication(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     name = models.CharField(max_length=255)

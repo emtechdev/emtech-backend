@@ -5,12 +5,19 @@ from rest_framework.response import Response
 from django.http import HttpResponse
 from django.core.exceptions import ValidationError
 from rest_framework import status
-from .models import (Category, SubCategory, Product, Pricing, ProductSpesfication, UserProfile)
+from .models import (Category, SubCategory, Product, Pricing, ProductSpesfication, UserProfile, File)
 from .serializers import (CategorySerializer, SubCategorySerializer,
                            ProductSerializer, PricingSerializer,
-                             ProductSpesficationSerializer , UserSerializer)
+                             ProductSpesficationSerializer , UserSerializer, FileSerializer)
 
 from rest_framework.decorators import api_view
+from rest_framework import generics
+from django.contrib.auth.models import User
+
+
+class UserListView(generics.ListAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
 
 
 @api_view(['POST'])
@@ -35,7 +42,7 @@ class CategoryViewset(viewsets.ModelViewSet):
         except Category.DoesNotExist:
             return Response({'error': 'Category not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-        subcategory = SubCategory.objects.filter(category=category)
+        subcategory = SubCategory.objects.filter(category=category).prefetch_related('category')
         serializer = SubCategorySerializer(subcategory, many=True)
         return Response(serializer.data)
 
@@ -96,7 +103,7 @@ class SubCategoryViewset(viewsets.ModelViewSet):
         except SubCategory.DoesNotExist:
             return Response({'error': 'SubCategory not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-        product = Product.objects.filter(subcategory=subcategory)
+        product = Product.objects.filter(subcategory=subcategory).prefetch_related('subcategory')
         serializer = ProductSerializer(product, many=True)
         return Response(serializer.data)
 
@@ -112,6 +119,7 @@ class SubCategoryViewset(viewsets.ModelViewSet):
 
         name = request.data.get('name')
         series = request.data.get('series')
+        file = request.data.get('file')
         manfacturer = request.data.get('manfacturer')
         origin = request.data.get('origin')
         description = request.data.get('description')
@@ -127,6 +135,7 @@ class SubCategoryViewset(viewsets.ModelViewSet):
             product = Product.objects.create(
                 name=name,
                 series=series,
+                file=file,
                 manfacturer=manfacturer,
                 origin=origin,
                 description=description,
@@ -205,7 +214,7 @@ class ProductViewset(viewsets.ModelViewSet):
         except Product.DoesNotExist:
             return Response({'error': 'Product not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-        pricing = Pricing.objects.filter(product=product)
+        pricing = Pricing.objects.filter(product=product).prefetch_related('product')
         serializer = PricingSerializer(pricing, many=True)
         return Response(serializer.data)
 
@@ -216,7 +225,7 @@ class ProductViewset(viewsets.ModelViewSet):
         except Product.DoesNotExist:
             return Response({'error': 'Product not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-        specification = ProductSpesfication.objects.filter(product=product)
+        specification = ProductSpesfication.objects.filter(product=product).prefetch_related('product')
         serializer = ProductSpesficationSerializer(specification, many=True)
         return Response(serializer.data)
 
@@ -259,3 +268,7 @@ class ProductSpesficationViewset(viewsets.ModelViewSet):
     queryset = ProductSpesfication.objects.all()
     serializer_class = ProductSpesficationSerializer
     
+
+class FileViewset(viewsets.ModelViewSet):
+    queryset = File.objects.all()
+    serializer_class = FileSerializer
