@@ -19,13 +19,25 @@ class FileSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+
+
+
 class ProductSerializer(serializers.ModelSerializer):
+    file_url = serializers.SerializerMethodField()
+
     class Meta:
         model = Product
-        fields = ('id', 'subcategory', 'file', 'name',
-                   'image', 'description', 'series',
-                     'manfacturer', 'origin', 'eg_stock',
-                       'ae_stock', 'tr_stock')
+        fields = ('id', 'subcategory', 'file_url', 'file', 'name',
+                  'image', 'description', 'series',
+                  'manfacturer', 'origin', 'eg_stock',
+                  'ae_stock', 'tr_stock')
+
+    def get_file_url(self, obj):
+        if obj.file:
+            return obj.file.file.url
+        return None
+    
+
 
 class PricingSerializer(serializers.ModelSerializer):
     class Meta:

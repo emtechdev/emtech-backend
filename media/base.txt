@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@200..1000&display=swap" rel="stylesheet">
+    <title>{% block title %}{% endblock %} | Penta</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/aos@next/dist/aos.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/hover.css/2.1.1/css/hover-min.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="icon" type="image/x-icon" href="https://imagetolink.com/ib/3teY6smiyD.png">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+</head>
+<style>
+    body{
+        font-family: "Cairo", sans-serif !important;
+    }
+    .switch_lang{
+        border-radius: 10px;
+        background-color: #4cb4cc;
+        color: white;
+        margin-right: 10px
+    };
+    .switch_lang.langAr{
+        margin-left: 10px !important;
+        margin-right: 0 !important
+    }
+    .item {
+        position: relative;
+        border: 1px solid #ccc;
+        border-radius: 10px;
+    }
+
+    .task_name {
+        border-bottom: 1px solid #ccc;
+        padding-bottom: 15px;
+    }
+
+    .clicked {
+        color: white !important;
+    }
+
+    .clicked::before {
+        content: "✔";
+        position: absolute;
+        background-color: #4cb4cc;
+        color: white !important;
+        padding: 4px;
+        width: 50px;
+        height: 50px;
+        font-size: 20px;
+        font-weight: bold;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        top: -15px;
+        right: -15px;
+    }
+
+    .assign-form {
+        border-top: 1px solid #ccc;
+        padding-top: 15px;
+    }
+
+    .main-title {
+        position: relative;
+        margin-bottom: 40px !important;
+    }
+
+    .main-title::after {
+        content: "";
+        position: absolute;
+        background-color: #222;
+        height: 2px;
+        width: 100px;
+        left: 50%;
+        transform: translateX(-50%);
+        top: 45px;
+        transition: all 0.5s ease-in-out;
+    }
+
+    .main-title:hover::after {
+        width: 180px;
+    }
+
+    .home_nav_btn,
+    .rooms_nav_btn {
+        background-color: #4cb4cc;
+         margin-left: 30px !important;
+    }
+
+    .assign-button {
+        background-color: #1f2937 !important;
+    }
+    .home_nav_btn{
+       
+    }
+    .logout-btn {
+        padding: 10px !important;
+    }
+</style>
+
+<body>
+    <nav class="bg-gray-800">
+        <div class="mx-auto max-w-7xl px-2 sm:px-6 lg:px-8">
+            <div class="relative flex h-16 items-center justify-between">
+                <div class="flex flex-shrink-0 items-center">
+                    <a class="text-xl font-semibold text-white" href=""><img src="https://imagetolink.com/ib/3teY6smiyD.png" alt="penta" class="w-40" /></a>
+                </div>
+
+                <div class="flex flex-1 items-center justify-center flex-wrap">
+                    {% if request.user.is_authenticated %}
+                    <div class="absolute flex items-center lg:hidden">
+                        <button type="button" id="mobile-menu-button" class="relative inline-flex items-center justify-center rounded-md p-2 text-gray-400 hover:bg-gray-700 hover:text-white focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white" aria-controls="mobile-menu" aria-expanded="false">
+                            <span class="sr-only">Open main menu</span>
+                            <svg class="block h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                            </svg>
+                            <svg class="hidden h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                    {% else %}
+                    {% endif %}
+
+                    {% if request.user.is_authenticated %}
+                    <div class="hidden sm:ml-6 lg:flex sm:space-x-2 lg:space-x-4">
+                        <a href="{% url 'home' %}" class="rounded-md px-3 py-2 text-sm font-medium {% if request.path == '/home/' %} home_nav_btn text-white{% else %}text-gray-300 hover:bg-gray-700 hover:text-white{% endif %}" aria-current="{% if request.path == '/home/' %}page{% endif %}">Home</a>
+                        <a href="{% url 'room' %}" class="rounded-md px-3 py-2 text-sm font-medium {% if request.path == '/room/' %} rooms_nav_btn text-white{% else %}text-gray-300 hover:bg-gray-700 hover:text-white{% endif %}" aria-current="{% if request.path == '/room/' %}page{% endif %}">Rooms</a>
+                        <a href="{% url 'major_rooms' %}" class="rounded-md px-3 py-2 text-sm font-medium {% if request.path == '/major_rooms/' %} rooms_nav_btn text-white{% else %}text-gray-300 hover:bg-gray-700 hover:text-white{% endif %}" aria-current="{% if request.path == '/major_rooms/' %}page{% endif %}">Major clean</a>
+
+                        {% if request.user.profile.kind == '2' %}
+                        <div class="relative group mt-2">
+                            <a href="#" class="rounded-md px-3 py-2 text-sm font-medium text-gray-300 hover:bg-gray-700 hover:text-white">Products</a>
+                            <div class="absolute hidden group-hover:block bg-white text-black rounded-lg border mt-2 z-20 w-40">
+                                <a href="{% url 'product_list' %}" class="block px-4 py-2 hover:bg-gray-900 hover:text-white rounded-t-lg">Products</a>
+                                <a href="{% url 'create_test' %}" class="block px-4 py-2 hover:bg-gray-900 hover:text-white">Test</a>
+                                <a href="{% url 'test_list' %}" class="block px-4 py-2 hover:bg-gray-900 rounded-b-lg hover:text-white">Test list</a>
+                                <a href="{% url 'bench_list' %}" class="block px-4 py-2 hover:bg-gray-900 hover:text-white">bench_list</a>
+                            </div>
+                        </div>
+                        <div class="relative group mt-2">
+                            <a href="#" class="rounded-md px-3 py-2 text-sm font-medium text-gray-300 hover:bg-gray-700 hover:text-white">Admin</a>
+                            <div class="absolute hidden group-hover:block bg-white text-black rounded-lg border mt-2 z-20 w-40">
+                                <a href="{% url 'users' %}" class="block px-4 py-2 hover:bg-gray-900 rounded-t-lg hover:text-white">Users</a>
+                                <a href="{% url 'assign_list' %}" class="block px-4 py-2 hover:bg-gray-900 hover:text-white">Assigns</a>
+                                <a href="{% url 'all_tasks' %}" class="block px-4 py-2 hover:bg-gray-900 rounded-b-lg hover:text-white">All Tasks</a>
+                                <a href="{% url 'room' %}" class="block px-4 py-2 hover:bg-gray-900 rounded-b-lg hover:text-white">All Tasks</a>
+
+
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% else %}
+                    {% endif %}
+                </div>
+                <div>
+                    <button class="switch_lang py-2 px-2">EN</button>
+                    {% if request.user.is_authenticated %}
+                    <form action="{% url 'logout' %}" method="post" class="inline" id="logoutForm">
+                        {% csrf_token %}
+                        <button type="submit" onclick="return confirm('Are you sure you want to logout?')" class="px-2 py-1 text-lg font-semibold bg-red-500 text-white rounded-lg hover:bg-red-700 mt-0 logout-btn"><i class="fa fa-sign-out"></i></button>
+                    </form>
+                    {% else %}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        {% if request.user.is_authenticated %}
+        <div class="lg:hidden hidden" id="mobile-menu">
+            <div class="space-y-1 px-2 pb-3 pt-2">
+                <a href="{% url 'home' %}" class="block rounded-md px-3 py-2 text-base font-medium {% if request.path == '/home/' %}home_nav_btn text-white{% else %}text-gray-300 hover:bg-gray-700 hover:text-white{% endif %}" aria-current="{% if request.path == '/home/' %}page{% endif %}">Home</a>
+                <a href="{% url 'room' %}" class="block rounded-md px-3 py-2 text-base font-medium {% if request.path == '/room/' %}rooms_nav_btn text-white{% else %}text-gray-300 hover:bg-gray-700 hover:text-white{% endif %}" aria-current="{% if request.path == '/room/' %}page{% endif %}">Rooms</a>
+                {% if request.user.profile.kind == '2' %}
+                <div class="relative group mt-2">
+                    <a href="{% url 'all_tasks' %}" class="block rounded-md px-3 py-2 text-base font-medium text-gray-300 hover:bg-gray-700 hover:text-white">Admin</a>
+                    <div class="absolute hidden group-hover:block bg-white text-black rounded-lg border z-10 w-40">
+                        <a href="{% url 'users' %}" class="block px-4 py-2 hover:bg-gray-900 rounded-t-lg hover:text-white">Users</a>
+                        <a href="{% url 'assign_list' %}" class="block px-4 py-2 hover:bg-gray-900 rounded-b-lg hover:text-white">Assigns</a>
+                        <a href="{% url 'all_tasks' %}" class="block px-4 py-2 hover:bg-gray-900 rounded-b-lg hover:text-white">All Tasks</a>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% else %}
+        {% endif %}
+    </nav>
+
+    <div class="px-6 py-6">
+        {% block content %}
+        {% endblock %}
+    </div>
+    <script src="https://unpkg.com/aos@next/dist/aos.js"></script>
+    <script>
+        AOS.init();
+        document.addEventListener('DOMContentLoaded', function() {
+            const mobileMenuButton = document.getElementById('mobile-menu-button');
+            const mobileMenu = document.getElementById('mobile-menu');
+
+            mobileMenuButton.addEventListener('click', function() {
+                const isExpanded = mobileMenuButton.getAttribute('aria-expanded') === 'true';
+                mobileMenuButton.setAttribute('aria-expanded', !isExpanded);
+                mobileMenu.classList.toggle('hidden');
+            });
+        });
+        
+
+
+    
+    // Function to update the language based on the stored value
+    function updateLanguage() {
+        let langWebsite = localStorage.getItem("langWebsite") || "EN"; // Default to EN if not set
+        let switchBtn = document.querySelector(".switch_lang");
+        let roomtitle = document.querySelector(".roomtitle")
+        let loginlabelusername = document.querySelector(".loginlabelusername")
+        let loginlabelpassword = document.querySelector(".loginlabelpassword")
+        let taskupdatetitle = document.querySelector(".taskupdatetitle")
+        let update_task = document.querySelector(".update_task")
+        let eye = document.querySelector(".eye")
+        let login_btn = document.querySelector(".login_btn")
+        let alltaskstitle = document.querySelector(".alltaskstitle")
+        let search = document.querySelector(".search")
+        let time_th = document.querySelector(".time_th")
+        let user_th = document.querySelector(".user_th")
+        let room_th = document.querySelector(".room_th")
+        let name_th = document.querySelector(".name_th")
+        let active_th = document.querySelector(".active_th")
+        let comment_th = document.querySelector(".comment_th")
+        let actions_th = document.querySelector(".actions_th")
+        let assigntitle = document.querySelector(".assigntitle")
+        let assignSearch = document.querySelector(".assignSearch")
+        let assign_doneAt = document.querySelector(".assign_doneAt")
+        let assign_task_th = document.querySelector(".assign_task_th")
+        let assign_user_th = document.querySelector(".assign_user_th")
+        let assign_room_th = document.querySelector(".assign_room_th")
+        let assign_Supervisor_th = document.querySelector(".assign_Supervisor_th")
+        let assign_Comment_th = document.querySelector(".assign_Comment_th")
+        let assign_Actions_th = document.querySelector(".assign_Actions_th")
+        let assignUpdate = document.querySelector(".assignUpdate")
+        let updateAssignBtn = document.querySelector(".updateAssignBtn")
+        let createBensh = document.querySelector(".createBensh")
+        let saveBench = document.querySelector(".saveBench")
+        let editBench = document.querySelector(".editBench")
+        let addBench = document.querySelector(".addBench")
+        let addTaskRoom = document.querySelector(".addTaskRoom")
+        let edit_room_btn = document.querySelector(".edit_room_btn")
+        let taskstitle = document.querySelector(".taskstitle")
+        let editProfileTitle = document.querySelector(".editProfileTitle")
+        let userInf = document.querySelector(".userInf")
+        let profInf = document.querySelector(".profInf")
+        let changePass = document.querySelector(".changePass")
+        let saveChanges = document.querySelector(".saveChanges")
+        let editTest = document.querySelector(".editTest")
+        let saveTest = document.querySelector(".saveTest")
+        let expiration_heading = document.querySelector(".expiration_heading")
+        let expiration_text = document.querySelector(".expiration_text")
+        let room_name = document.querySelector(".room_name")
+        let time_majored = document.querySelector(".time_majored")
+        let num_of_tasks = document.querySelector(".num_of_tasks")
+        let majored_rooms_text = document.querySelector(".majored_rooms_text")
+        let no_majored = document.querySelector(".no_majored")
+        let api_heading = document.querySelector(".api_heading")
+        let no_api = document.querySelector(".no_api")
+        let add_prod  = document.querySelector(".add_prod")
+        let add_prod_api  = document.querySelector(".add_prod_api")
+        let add_prod_another  = document.querySelector(".add_prod_another")
+        let prod_name_txt  = document.querySelector(".prod_name_txt ")
+        let prod_name_Actions  = document.querySelector(".prod_name_Actions")
+        let add_api_btnn  = document.querySelector(".add_api_btnn")
+        let add_user_heading  = document.querySelector(".add_user_heading")
+        let add_user_username  = document.querySelector(".add_user_username")
+        let add_user_password  = document.querySelector(".add_user_password")
+        let add_user_password_confirm  = document.querySelector(".add_user_password_confirm")
+        let add_user_kind  = document.querySelector(".add_user_kind")
+        let add_user_image  = document.querySelector(".add_user_image")
+        let add_user_btn  = document.querySelector(".add_user_btn")
+        let edit_room_btn_sub  = document.querySelector(".edit_room_btn_sub")
+        let add_task_form_btn  = document.querySelector(".add_task_form_btn")
+        let add_anothertask_form_btn  = document.querySelector(".add_anothertask_form_btn")
+        let add_api_btn  = document.querySelector(".add_api_btn")
+        let add_api_btn_another  = document.querySelector(".add_api_btn_another")
+        let test_list_heading  = document.querySelector(".test_list_heading")
+        let test_list_filter  = document.querySelector(".test_list_filter")
+        let test_list_time  = document.querySelector(".test_list_time")
+        let test_list_user  = document.querySelector(".test_list_user")
+        let test_list_bench  = document.querySelector(".test_list_bench")
+        let test_list_product  = document.querySelector(".test_list_product")
+        let test_list_api  = document.querySelector(".test_list_api")
+        let test_list_comment  = document.querySelector(".test_list_comment")
+        let registerClosed  = document.querySelector(".registerClosed")
+        let maximumnumber  = document.querySelector(".maximumnumber")
+        let total_users_txt  = document.querySelector(".total_users_txt")
+        let user_id  = document.querySelector(".user_id")
+        let user_name  = document.querySelector(".user_name")
+        let user_customize  = document.querySelector(".user_customize")
+        let newUser  = document.querySelector(".newUser")
+        let users_heading  = document.querySelector(".users_heading")
+        let add_product_text  = document.querySelector(".add_product_text")
+        let product_list_txt  = document.querySelector(".product_list_txt")
+        let labelassignroom  = document.querySelector(".labelassignroom")
+        let labelassigntask  = document.querySelector(".labelassigntask")
+        let labelassignuser  = document.querySelector(".labelassignuser")
+        let labelassignsupervisor  = document.querySelector(".labelassignsupervisor")
+        let major_assigns  = document.querySelector(".major_assigns")
+        let addBensh  = document.querySelector(".addBensh")
+        let benchName  = document.querySelector(".benchName")
+        let benchActions  = document.querySelector(".benchActions")
+        let bench_list_txt  = document.querySelector(".bench_list_txt")
+        let create_machine  = document.querySelector(".create_machine")
+        let machine_name  = document.querySelector(".machine_name")
+        let saveMachines  = document.querySelector(".saveMachines")
+        let CreateMaintenanceTxt  = document.querySelector(".CreateMaintenanceTxt")
+        let id_date  = document.querySelector(".id_date")
+        let id_alert  = document.querySelector(".id_alert")
+        let saveMaintenance  = document.querySelector(".saveMaintenance")
+        let select_product  = document.querySelector(".select_product")
+        let test_select_api  = document.querySelector(".test_select-api")
+        let test_select_comment  = document.querySelector(".test_select-comment")
+        let test_select_bench  = document.querySelector(".test_select_bench")
+        let batch_num  = document.querySelector(".batch_num")
+        let create_test_btn  = document.querySelector(".create_test_btn")
+        let edit_machine_txt  = document.querySelector(".edit_machine_txt")
+        let edit_machine_save  = document.querySelector(".edit_machine_save")
+        let edit_machine_cancel  = document.querySelector(".edit_machine_cancel")
+        let product_search  = document.querySelector("#product-search")
+        let api_search  = document.querySelector("#api-search")
+        let loginTXT  = document.querySelector(".loginTXT")
+        let changed_by  = document.querySelector(".changed_by")
+        let major_history  = document.querySelector(".major_history")
+        let Major_History_Changed  = document.querySelector(".Major_History_Changed")
+        let three_days  = document.querySelector(".three_days")
+        let time_left  = document.querySelector(".time_left")
+        let major_rooms_heading  = document.querySelector(".major_rooms_heading")
+        if (langWebsite === "AR") {
+            switchBtn.classList.add("langAr");
+            switchBtn.innerHTML = "AR";
+            document.querySelector("html").style.direction = "rtl";
+            switchBtn.style.marginLeft = "10px";
+            switchBtn.style.marginRight = "0";
+            // Update the inner HTML for all elements
+            if(roomtitle) roomtitle.innerHTML = "الغرف";
+            if(loginlabelusername) loginlabelusername.innerHTML = "إسم المستخدم";
+            if(loginlabelpassword) loginlabelpassword.innerHTML = "الرقم السري";
+            if(taskupdatetitle) taskupdatetitle.innerHTML = "تعديل المهمة";
+            if(update_task) update_task.innerHTML = "تحديث";
+            if(login_btn) login_btn.innerHTML = "تسجيل";
+            if(alltaskstitle) alltaskstitle.innerHTML = "كل المهام";
+            if(search) search.innerHTML = "بحث";
+            if(time_th) time_th.innerHTML = "الوقت";
+            if(user_th) user_th.innerHTML = "المستخدم";
+            if(user_th) room_th.innerHTML = "الغرفة";
+            if(name_th) name_th.innerHTML = "الإسم";
+            if(active_th) active_th.innerHTML = "نشط";
+            if(comment_th) comment_th.innerHTML = "تعليق";
+            if(actions_th) actions_th.innerHTML = "الأحداث";
+            if(assigntitle) assigntitle.innerHTML = "قائمة المهام";
+            if(assignSearch) assignSearch.innerHTML = "بحث";
+            if(assign_doneAt) assign_doneAt.innerHTML = "تم التنفيذ";
+            if(assign_task_th) assign_task_th.innerHTML = "المهمة";
+            if(assign_user_th) assign_user_th.innerHTML = "المستخدم";
+            if(assign_room_th) assign_room_th.innerHTML = "الغرفة";
+            if(assign_Supervisor_th) assign_Supervisor_th.innerHTML = "الموافقة";
+            if(assign_Comment_th) assign_Comment_th.innerHTML = "تعليق";
+            if(assign_Actions_th) assign_Actions_th.innerHTML = "الأحداث";
+            if(assignUpdate) assignUpdate.innerHTML = "تحديث المهمة";
+            if(updateAssignBtn) updateAssignBtn.innerHTML = "تحديث";
+            if(createBensh) createBensh.innerHTML = "إنشاء مختبر";
+            if(saveBench) saveBench.innerHTML = "حفظ";
+            if(editBench) editBench.innerHTML = "تعديل مختبر";
+            if(addBench) addBench.innerHTML = "إضافة مختبر";
+            if(addTaskRoom) addTaskRoom.innerHTML = "إضافة مهمة";
+            if(edit_room_btn) edit_room_btn.innerHTML = "تعديل الغرفة";
+            if(taskstitle) taskstitle.innerHTML = "المهام";
+            if(editProfileTitle) editProfileTitle.innerHTML = "تعديل الملف الشخصي";
+            if(userInf) userInf.innerHTML = "معلومات المستخدم";
+            if(profInf) profInf.innerHTML = "معلومات الشخصية";
+            if(changePass) changePass.innerHTML = "تغيير كلمة السر";
+            if(saveChanges) saveChanges.innerHTML = "حفظ التغييرات";
+            if(editTest) editTest.innerHTML = "نقط الإختبار";
+            if(saveTest) saveTest.innerHTML = "حفظ التغييرات";
+            if(expiration_heading) expiration_heading.innerHTML = "الموقع يمتلك تقييدات";
+            if(expiration_text) expiration_text.innerHTML = "تواصل مع المسئول لمعرفة المزيد من المعلومات";
+            if(room_name) room_name.innerHTML = "إسم الغرفة";
+            if(time_majored) time_majored.innerHTML = "الوقت المخصص";
+            if(num_of_tasks) num_of_tasks.innerHTML = "عدد المهام";
+            if(majored_rooms_text) majored_rooms_text.innerHTML = "الغرف المخصصة";
+            if(no_majored) no_majored.innerHTML = "ليس هناك غرف مخصصة";
+            if(api_heading) api_heading.innerHTML = "المواد الفعالة";
+            if(no_api) no_api.innerHTML = "لا يوجد مواد فعالة متاحة";
+            if(add_prod) add_prod.innerHTML = "إضافة منتج دواء";
+            if(add_prod_api) add_prod_api.innerHTML = "إضافة مادة فعالة";
+            if(add_prod_another) add_prod_another.innerHTML = "إضافة دواء أخر";
+            if(prod_name_txt) prod_name_txt.innerHTML = "إسم المنتج";
+            if(prod_name_Actions) prod_name_Actions.innerHTML = "الأحداث";
+            if(add_api_btnn) add_api_btnn.innerHTML = "إضافة مادة فعالة";
+            if(add_user_heading) add_user_heading.innerHTML = "إضافة مستخدم";
+            if(add_user_username) add_user_username.innerHTML = "إسم المستخدم";
+            if(add_user_password) add_user_password.innerHTML = "كلمة السر";
+            if(add_user_password_confirm) add_user_password_confirm.innerHTML = "تأكيد كلمة السر";
+            if(add_user_kind) add_user_kind.innerHTML = "نوع المستخدم";
+            if(add_user_image) add_user_image.innerHTML = "الصورة";
+            if(add_user_btn) add_user_btn.innerHTML = "إضافة مستخدم";
+            if(edit_room_btn_sub) edit_room_btn_sub.innerHTML = "تعديل الغرفة";
+            if(add_task_form_btn) add_task_form_btn.innerHTML = "إضافة مهمة";
+            if(add_anothertask_form_btn) add_anothertask_form_btn.innerHTML = "إضافة مهمة أخرى";
+            if(add_api_btn) add_api_btn.innerHTML = "إضافة مادة فعالة";
+            if(add_api_btn_another) add_api_btn_another.innerHTML = "إضافة مادة فعالة أخرى";
+            if(test_list_heading) test_list_heading.innerHTML = "قائمة الإختبارات";
+            if(test_list_filter) test_list_filter.innerHTML = "بحث";
+            if(test_list_time) test_list_time.innerHTML = "الوقت";
+            if(test_list_user) test_list_user.innerHTML = "المستخدم";
+            if(test_list_bench) test_list_bench.innerHTML = "المختبر";
+            if(test_list_product) test_list_product.innerHTML = "إسم المنتج";
+            if(test_list_api) test_list_api.innerHTML = "إسم المادة الفعالة";
+            if(test_list_comment) test_list_comment.innerHTML = "تعليق";
+            if(registerClosed) registerClosed.innerHTML = "التسجيل مغلق";
+            if(maximumnumber) maximumnumber.innerHTML = "تم الوصول إلى الحد الأقصى للعدد لذلك التسجيل مغلق حاليا.";
+            if(total_users_txt) total_users_txt.innerHTML = "إجمالي المستخدمين:";
+            if(user_id) user_id.innerHTML = "الرقم التعريفي";
+            if(user_name) user_name.innerHTML = "إسم المستخدم";
+            if(user_customize) user_customize.innerHTML = "تخصيص";
+            if(newUser) newUser.innerHTML = "جديد +";
+            if(users_heading) users_heading.innerHTML = "المستخدمين";
+            if(add_product_text) add_product_text.innerHTML = "إضافة منتج";
+            if(product_list_txt) product_list_txt.innerHTML = "قائمة المنتجات";
+            if(labelassignroom) labelassignroom.innerHTML = "الغرفة";
+            if(labelassigntask) labelassigntask.innerHTML = "المهمة";
+            if(labelassignuser) labelassignuser.innerHTML = "المستخدم";
+            if(labelassignsupervisor) labelassignsupervisor.innerHTML = "المسئول";
+            if(major_assigns) major_assigns.innerHTML = "المهام الأساسية";
+            if(addBensh) addBensh.innerHTML = "إضافة مختبر";
+            if(benchName) benchName.innerHTML = "إسم المختبر";
+            if(benchActions) benchActions.innerHTML = "الأحداث";
+            if(bench_list_txt) bench_list_txt.innerHTML = "قائمة المختبرات";
+            if(create_machine) create_machine.innerHTML = "إضافة ماكينة";
+            if(machine_name) machine_name.innerHTML = "إسم الماكينة";
+            if(saveMachines) saveMachines.innerHTML = "حفظ الماكينة";
+            if(CreateMaintenanceTxt) CreateMaintenanceTxt.innerHTML = "عمل صيانة لـ";
+            if(id_date) id_date.innerHTML = "التاريخ:";
+            if(id_alert) id_alert.innerHTML = "تنبيه:";
+            if(saveMaintenance) saveMaintenance.innerHTML = "تسجيل عمل صيانة";
+            if(select_product) select_product.innerHTML = "إختيار منتج";         
+            if(test_select_api) test_select_api.innerHTML = "إختيار مادة فعالة";         
+            if(test_select_comment) test_select_comment.innerHTML = "إدخال تعليق";         
+            if(test_select_bench) test_select_bench.innerHTML = "إختيار مختبر";         
+            if(batch_num) batch_num.innerHTML = "رقم الباتش";         
+            if(create_test_btn) create_test_btn.innerHTML = "إنشاء إختبار";         
+            if(edit_machine_txt) edit_machine_txt.innerHTML = "تعديل الماكينة";         
+            if(edit_machine_save) edit_machine_save.innerHTML = "حفظ التغييرات";         
+            if(edit_machine_cancel) edit_machine_cancel.innerHTML = "إلغاء";
+            if(loginTXT) loginTXT.innerHTML = "تسجيل الدخول";
+            if(changed_by) changed_by.innerHTML = "تم التغيير بواسطة";
+            if(major_history) major_history.innerHTML = "جدول التعقيم الكلي";
+            if(product_search) product_search.placeholder = "بحث عن منتج";  
+            if(api_search) api_search.placeholder = "بحث عن مادة فعالة";
+            if(Major_History_Changed) Major_History_Changed.innerHTML = "جدول التعقيم الكلي تغير بواسطة";
+            if(three_days) three_days.innerHTML = "الثلاث أيام السابقة";
+            if(time_left) time_left.innerHTML = "الوقت المتبقي على التعقيم الكلي";
+            if(major_rooms_heading) major_rooms_heading.innerHTML = "الغرف الكلية";
+            eye.classList.remove("right-3")
+            eye.classList.add("left-3");
+        } else {
+            switchBtn.classList.remove("langAr");
+            switchBtn.innerHTML = "EN";
+            document.querySelector("html").style.direction = "ltr";
+            switchBtn.style.marginRight = "10px";
+            switchBtn.style.marginLeft = "0";
+            // Update the inner HTML for all elements
+            if(roomtitle) roomtitle.innerHTML = "Rooms";
+            if(loginlabelusername) loginlabelusername.innerHTML = "Username";
+            if(loginlabelusername) loginlabelpassword.innerHTML = "Password";
+            if(loginlabelusername) loginlabelusername.innerHTML = "Update Task";
+            if(update_task) update_task.innerHTML = "Update";
+            if(login_btn) login_btn.innerHTML = "Login";
+            if(alltaskstitle) alltaskstitle.innerHTML = "All Tasks";
+            if(search) search.innerHTML = "Filter";
+            if(time_th) time_th.innerHTML = "Time";
+            if(user_th) user_th.innerHTML = "User";
+            if(room_th) room_th.innerHTML = "Room";
+            if(name_th) name_th.innerHTML = "Name";
+            if(active_th) active_th.innerHTML = "Active";
+            if(comment_th) comment_th.innerHTML = "Comment";
+            if(actions_th) actions_th.innerHTML = "Actions";
+            if(assigntitle) assigntitle.innerHTML = "Assign List";
+            if(assignSearch) assignSearch.innerHTML = "Filter";
+            if(assign_doneAt) assign_doneAt.innerHTML = "Done At";
+            if(assign_task_th) assign_task_th.innerHTML = "Task";
+            if(assign_user_th) assign_user_th.innerHTML = "User";
+            if(assign_room_th) assign_room_th.innerHTML = "Room";
+            if(assign_Supervisor_th) assign_Supervisor_th.innerHTML = "Supervisor Approved";
+            if(assign_Comment_th) assign_Comment_th.innerHTML = "Comment";
+            if(assign_Actions_th) assign_Actions_th.innerHTML = "Actions";
+            if(assignUpdate) assignUpdate.innerHTML = "Update Assignment";
+            if(updateAssignBtn) updateAssignBtn.innerHTML = "Update";
+            if(createBensh) createBensh.innerHTML = "Create Bench";
+            if(saveBench) saveBench.innerHTML = "Save";
+            if(editBench) editBench.innerHTML = "Edit Bench";
+            if(addBench) addBench.innerHTML = "Add Bench";
+            if(addTaskRoom) addTaskRoom.innerHTML = "Add Task";
+            if(edit_room_btn) edit_room_btn.innerHTML = "Edit Room";
+            if(taskstitle) taskstitle.innerHTML = "Tasks";
+            if(editProfileTitle) editProfileTitle.innerHTML = "Edit Profile";
+            if(userInf) userInf.innerHTML = "User Information";
+            if(profInf) profInf.innerHTML = "Profile Information";
+            if(changePass) changePass.innerHTML = "Change Password";
+            if(saveChanges) saveChanges.innerHTML = "Save Changes";
+            if(editTest) editTest.innerHTML = "Edit Test";
+            if(saveTest) saveTest.innerHTML = "Save";
+            if(expiration_heading) expiration_heading.innerHTML = "This site has limits.";
+            if(expiration_text) expiration_text.innerHTML = "Please contact the administrator for more information.";
+            if(room_name) room_name.innerHTML = "Room Name";
+            if(time_majored) time_majored.innerHTML = "Time Majored";
+            if(num_of_tasks) num_of_tasks.innerHTML = "Number of Tasks";
+            if(majored_rooms_text) majored_rooms_text.innerHTML = "Majored Rooms";
+            if(no_majored) no_majored.innerHTML = "No majored rooms found.";
+            if(api_heading) api_heading.innerHTML = "APIs";
+            if(no_api) no_api.innerHTML = "No APIs available.";
+            if(add_prod) add_prod.innerHTML = "Add";
+            if(add_prod_api) add_prod_api.innerHTML = "Add API";
+            if(add_prod_another) add_prod_another.innerHTML = "Add Another Product";
+            if(prod_name_txt) prod_name_txt.innerHTML = "Name";
+            if(prod_name_Actions) prod_name_Actions.innerHTML = "Actions";
+            if(add_api_btnn) add_api_btnn.innerHTML = "Add API";
+            if(add_user_heading) add_user_heading.innerHTML = "Add User";
+            if(add_user_username) add_user_username.innerHTML = "Username";
+            if(add_user_password) add_user_password.innerHTML = "Password";
+            if(add_user_password_confirm) add_user_password_confirm.innerHTML = "Password Confirmation";
+            if(add_user_kind) add_user_kind.innerHTML = "Kind";
+            if(add_user_image) add_user_image.innerHTML = "Image";
+            if(add_user_btn) add_user_btn.innerHTML = "Add";
+            if(edit_room_btn_sub) edit_room_btn_sub.innerHTML = "Edit Room";
+            if(add_task_form_btn) add_task_form_btn.innerHTML = "Add Task";
+            if(add_anothertask_form_btn) add_anothertask_form_btn.innerHTML = "Add Another Task";
+            if(add_api_btn) add_api_btn.innerHTML = "Add API";
+            if(add_api_btn_another) add_api_btn_another.innerHTML = "Add Another API";
+            if(test_list_heading) test_list_heading.innerHTML = "Test List";
+            if(test_list_filter) test_list_filter.innerHTML = "Filter";
+            if(test_list_time) test_list_time.innerHTML = "Time";
+            if(test_list_user) test_list_user.innerHTML = "User";
+            if(test_list_bench) test_list_bench.innerHTML = "Bench";
+            if(test_list_product) test_list_product.innerHTML = "Product Name";
+            if(test_list_api) test_list_api.innerHTML = "API Name";
+            if(test_list_comment) test_list_comment.innerHTML = "Comment";
+            if(registerClosed) registerClosed.innerHTML = "Registration Closed";
+            if(maximumnumber) maximumnumber.innerHTML = "The maximum number has been reached, registration is currently closed.";
+            if(total_users_txt) total_users_txt.innerHTML = "Total users:";
+            if(user_id) user_id.innerHTML = "User ID";
+            if(user_name) user_name.innerHTML = "Username";
+            if(user_customize) user_customize.innerHTML = "Customize";
+            if(newUser) newUser.innerHTML = "New +";
+            if(users_heading) users_heading.innerHTML = "Users";
+            if(add_product_text) add_product_text.innerHTML = "Add Product";
+            if(product_list_txt) product_list_txt.innerHTML = "Product List";
+            if(labelassignroom) labelassignroom.innerHTML = "Room";
+            if(labelassigntask) labelassigntask.innerHTML = "Task";
+            if(labelassignuser) labelassignuser.innerHTML = "User";
+            if(labelassignsupervisor) labelassignsupervisor.innerHTML = "Supervisor";
+            if(major_assigns) major_assigns.innerHTML = "Major Assigns";
+            if(addBensh) addBensh.innerHTML = "Add Bench";
+            if(benchName) benchName.innerHTML = "Bench Name";
+            if(benchActions) benchActions.innerHTML = "Actions";
+            if(bench_list_txt) bench_list_txt.innerHTML = "Bench List";
+            if(create_machine) create_machine.innerHTML = "Create Machine";
+            if(machine_name) machine_name.innerHTML = "Machine Name";
+            if(saveMachines) saveMachines.innerHTML = "Save Machine";
+            if(CreateMaintenanceTxt) CreateMaintenanceTxt.innerHTML = "Create Maintenance for ";
+            if(id_date) id_date.innerHTML = "Date: ";
+            if(id_alert) id_alert.innerHTML = "Alert:";
+            if(saveMaintenance) saveMaintenance.innerHTML = "Save Maintenance";
+            if(select_product) select_product.innerHTML = "Select Product"; 
+            if(test_select_api) test_select_api.innerHTML = "Select API";
+            if(test_select_comment) test_select_comment.innerHTML = "Enter Comment"; 
+            if(test_select_bench) test_select_bench.innerHTML = "Select Bench"; 
+            if(batch_num) batch_num.innerHTML = "Batch Number"; 
+            if(create_test_btn) create_test_btn.innerHTML = "Create Test"; 
+            if(edit_machine_txt) edit_machine_txt.innerHTML = "Edit Machine";
+            if(edit_machine_save) edit_machine_save.innerHTML = "Save Changes";
+            if(edit_machine_cancel) edit_machine_cancel.innerHTML = "Cancel"; 
+            if(loginTXT) loginTXT.innerHTML = "Login"; 
+            if(changed_by) changed_by.innerHTML = "Changed By";
+            if(major_history) major_history.innerHTML = "Major History Time";
+            if(product_search) product_search.placeholder = "Search Product";
+            if(api_search) api_search.placeholder = "Search API";
+            if(Major_History_Changed) Major_History_Changed.innerHTML = "Major History Changed By";
+            if(three_days) three_days.innerHTML = "Three Days Later";
+            if(time_left) time_left.innerHTML = "Time Left for Major Clean";
+            if(major_rooms_heading) major_rooms_heading.innerHTML = "Major Rooms";
+            eye.classList.add("right-3");
+            eye.classList.remove("left-3");
+        }
+    }
+
+    // Run the updateLanguage function when the page loads
+    document.addEventListener("DOMContentLoaded", function() {
+        updateLanguage();
+    });
+
+    // Event listener for the language switch button
+    document.querySelector(".switch_lang").addEventListener("click", function() {
+        let langWebsite = localStorage.getItem("langWebsite") || "EN";
+        langWebsite = langWebsite === "EN" ? "AR" : "EN";
+        localStorage.setItem("langWebsite", langWebsite);
+        updateLanguage();
+    });
+</script>
+</body>
+
+</html>

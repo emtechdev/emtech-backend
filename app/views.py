@@ -13,6 +13,7 @@ from .serializers import (CategorySerializer, SubCategorySerializer,
 from rest_framework.decorators import api_view
 from rest_framework import generics
 from django.contrib.auth.models import User
+from rest_framework.parsers import MultiPartParser, FormParser
 
 
 class UserListView(generics.ListAPIView):
@@ -75,6 +76,7 @@ class CategoryViewset(viewsets.ModelViewSet):
 class SubCategoryViewset(viewsets.ModelViewSet):
     queryset = SubCategory.objects.all()
     serializer_class = SubCategorySerializer
+    parser_classes = [MultiPartParser, FormParser]  
 
     @action(detail=True, methods=['get'], url_name='get_product_detail', url_path='get_product_detail')
     def get_product_detail(self, request, pk=None):
@@ -106,7 +108,7 @@ class SubCategoryViewset(viewsets.ModelViewSet):
         product = Product.objects.filter(subcategory=subcategory).prefetch_related('subcategory')
         serializer = ProductSerializer(product, many=True)
         return Response(serializer.data)
-
+        
     @action(detail=True, methods=['post'], url_name='add_product', url_path='add_product')
     def add_product(self, request, pk=None):
         if pk is None:
@@ -119,11 +121,11 @@ class SubCategoryViewset(viewsets.ModelViewSet):
 
         name = request.data.get('name')
         series = request.data.get('series')
-        file = request.data.get('file')
+        file = request.FILES.get('file')  # Get the uploaded file
         manfacturer = request.data.get('manfacturer')
         origin = request.data.get('origin')
         description = request.data.get('description')
-        image = request.data.get('image')
+        image = request.FILES.get('image')  # Get the uploaded image
         eg_stock = request.data.get('eg_stock')
         ae_stock = request.data.get('ae_stock')
         tr_stock = request.data.get('tr_stock')
@@ -131,15 +133,23 @@ class SubCategoryViewset(viewsets.ModelViewSet):
         if not name:
             return Response({'error': 'Name is required and cannot be empty.'}, status=status.HTTP_400_BAD_REQUEST)
 
+        file_instance = None
+        if file:
+            file_instance = File.objects.create(file=file)
+
+        image_instance = None
+        if image:
+            image_instance = image
+
         try:
             product = Product.objects.create(
                 name=name,
                 series=series,
-                file=file,
+                file=file_instance, 
                 manfacturer=manfacturer,
                 origin=origin,
                 description=description,
-                image=image,
+                image=image_instance, 
                 eg_stock=eg_stock,
                 ae_stock=ae_stock,
                 tr_stock=tr_stock,
@@ -155,6 +165,36 @@ class SubCategoryViewset(viewsets.ModelViewSet):
 class ProductViewset(viewsets.ModelViewSet):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
+
+
+    @action(detail=True, methods=['post'])
+    def add_selected_file(self, request, pk=None, url_name='add_selected_file', url_path='add_selected_file'):
+        product = self.get_object()
+        file_id = request.data.get('file_id')
+        
+        try:
+            file = File.objects.get(id=file_id)
+        except File.DoesNotExist:
+            return Response({"error": "File not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+        product.file = file
+        product.save()
+        return Response({'status': 'file added'}, status=status.HTTP_200_OK)
+
+
+    @action(detail=True, methods=['post'], url_name='add_file', url_path='add_file')
+    def add_file(self, request, pk=None):
+        product = self.get_object()
+        file_serializer = FileSerializer(data=request.data)
+        
+        if file_serializer.is_valid():
+            file = file_serializer.save()
+            product.file = file
+            product.save()
+            return Response({'status': 'file added'}, status=status.HTTP_200_OK)
+        else:
+            return Response(file_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
     @action(detail=True, methods=['post'], url_name='add_pricing', url_path='add_pricing')
     def add_pricing(self, request, pk=None):
         if pk is None:
@@ -272,3 +312,4 @@ class ProductSpesficationViewset(viewsets.ModelViewSet):
 class FileViewset(viewsets.ModelViewSet):
     queryset = File.objects.all()
     serializer_class = FileSerializer
+    parser_classes = [MultiPartParser, FormParser] 

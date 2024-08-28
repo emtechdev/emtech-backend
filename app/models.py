@@ -35,11 +35,15 @@ class SubCategory(models.Model):
 
 class File(models.Model):
     file = models.FileField()
+    
+    def __str__(self):
+        return self.file.url
 
 
 class Product(models.Model):
     subcategory = models.ForeignKey(SubCategory, on_delete=models.CASCADE)
     file = models.ForeignKey(File, on_delete=models.CASCADE, null=True, blank=True)
+    file_link = models.URLField(max_length=500, null=True, blank=True)  
     name = models.CharField(max_length=255, unique=True)
     series = models.CharField(max_length=255)
     manfacturer = models.CharField(max_length=255)
