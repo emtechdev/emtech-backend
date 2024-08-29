@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Category, SubCategory, Product, Pricing, ProductSpesfication, UserProfile, File
+from .models import Category, SubCategory, Product, Pricing, ProductSpesfication, UserProfile, File, Image
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -19,11 +19,20 @@ class FileSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class ImageSerializer(serializers.ModelSerializer):
+    image_url = serializers.SerializerMethodField()
 
+    class Meta:
+        model = Image
+        fields = ['id', 'image_url', 'image']
+
+    def get_image_url(self, obj):
+        return obj.image.url
 
 
 class ProductSerializer(serializers.ModelSerializer):
     file_url = serializers.SerializerMethodField()
+    image = ImageSerializer()
 
     class Meta:
         model = Product

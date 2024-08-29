@@ -16,6 +16,7 @@ router.register('product', views.ProductViewset, 'product')
 router.register('productspecfication', views.ProductSpesficationViewset, 'productspecfication')
 router.register('product_pricing', views.PricingViewset, 'product_pricing')
 router.register('file', views.FileViewset, 'file')
+router.register('image', views.ImageViewset, 'image')
 
 
 

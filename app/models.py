@@ -40,6 +40,14 @@ class File(models.Model):
         return self.file.url
 
 
+class Image(models.Model):
+    image = models.ImageField()
+    
+    def __str__(self):
+        return self.image.url
+
+
+
 class Product(models.Model):
     subcategory = models.ForeignKey(SubCategory, on_delete=models.CASCADE)
     file = models.ForeignKey(File, on_delete=models.CASCADE, null=True, blank=True)
@@ -49,11 +57,13 @@ class Product(models.Model):
     manfacturer = models.CharField(max_length=255)
     origin = models.CharField(max_length=255)
     description = models.TextField(null=True, blank=True)
-    image = models.ImageField(upload_to='product_images', null=True, blank=True)
+    image = models.ForeignKey(Image, on_delete=models.CASCADE, null=True, blank=True)
     eg_stock = models.IntegerField()
     ae_stock = models.IntegerField()
     tr_stock = models.IntegerField()
 
+
+    
     def __str__(self):
         return self.name
     
