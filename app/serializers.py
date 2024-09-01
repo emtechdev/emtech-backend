@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Category, SubCategory, Product, Pricing, ProductSpesfication, UserProfile, File, Image
+from .models import Category, SubCategory, Product, Pricing, ProductSpesfication, UserProfile, File, Image, PurchaseBill , PurchaseBillItem, SalesBill, SalesBillItem
+from django.db import transaction
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -148,3 +149,55 @@ class UserSerializer(serializers.ModelSerializer):
         return user
     
 
+class ProductSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Product
+        fields = ['id', 'name', 'eg_stock', 'ae_stock', 'tr_stock']
+
+class PurchaseBillItemSerializer(serializers.ModelSerializer):
+    product = ProductSerializer()
+
+    class Meta:
+        model = PurchaseBillItem
+        fields = ['id', 'product', 'quantity', 'unit_price', 'location']
+
+class PurchaseBillSerializer(serializers.ModelSerializer):
+    items = PurchaseBillItemSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = PurchaseBill
+        fields = ['id', 'name', 'purchase_date', 'total_price', 'items']
+
+class SalesBillItemSerializer(serializers.ModelSerializer):
+    product_id = serializers.IntegerField(write_only=True)
+    product = ProductSerializer(read_only=True)
+
+    class Meta:
+        model = SalesBillItem
+        fields = ['id', 'product', 'product_id', 'quantity', 'location']
+
+    def create(self, validated_data):
+        product_id = validated_data.pop('product_id')
+        product = Product.objects.get(id=product_id)
+        validated_data['product'] = product
+        return super().create(validated_data)
+    
+class SalesBillSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = SalesBill
+        fields = ['id', 'name', 'sales_date', 'total_price']
+
+    def create(self, validated_data):
+        items_data = validated_data.pop('items')
+        sales_bill = SalesBill.objects.create(**validated_data)
+
+        total_price = 0
+        for item_data in items_data:
+            item_data['sales_bill'] = sales_bill
+            item = SalesBillItemSerializer().create(item_data)
+            total_price += item.quantity * item.product.unit_price  # Calculate total price
+
+        sales_bill.total_price = total_price
+        sales_bill.save()
+        return sales_bill

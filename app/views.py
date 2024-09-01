@@ -6,11 +6,11 @@ from django.http import HttpResponse
 from django.core.exceptions import ValidationError
 from rest_framework import status
 from .models import (Category, SubCategory, Product, Pricing, ProductSpesfication,
-                      UserProfile, File, Image)
+                      UserProfile, File, Image, PurchaseBill, PurchaseBillItem, SalesBill, SalesBillItem)
 from .serializers import (CategorySerializer, SubCategorySerializer,
                            ProductSerializer, PricingSerializer,
                              ProductSpesficationSerializer , UserSerializer,
-                               FileSerializer, ImageSerializer)
+                               FileSerializer, ImageSerializer, PurchaseBillSerializer, PurchaseBillItemSerializer, SalesBillSerializer, SalesBillItemSerializer)
 
 from rest_framework.decorators import api_view
 from rest_framework import generics
@@ -418,10 +418,8 @@ class ImageViewset(viewsets.ModelViewSet):
 
 @api_view(['POST'])
 def update_pricing_with_conversion(request):
-    # Get the conversion rates from the request
     conversion_rates = request.data
 
-    # Validate required fields
     required_fields = [
         'usd_to_egp', 'usd_to_eur', 'usd_to_tr', 'usd_to_rs', 'usd_to_ae', 'usd_to_strlini',
         'eur_to_egp', 'eur_to_usd', 'eur_to_tr', 'eur_to_rs', 'eur_to_ae', 'eur_to_strlini'
@@ -434,16 +432,13 @@ def update_pricing_with_conversion(request):
     if invalid_fields:
         return Response({'error': f'Invalid values for fields: {", ".join(invalid_fields)}'}, status=status.HTTP_400_BAD_REQUEST)
 
-    # Retrieve all products
     products = Product.objects.all()
     created_count = 0
 
     for product in products:
-        # Check if there is existing pricing for the product
-        existing_pricing = Pricing.objects.filter(product=product).first()
+        existing_pricing = Pricing.objects.filter(product=product).last()
 
         if existing_pricing:
-            # Create a new pricing entry with updated conversion rates
             try:
                 Pricing.objects.create(
                     product=product,
@@ -471,7 +466,7 @@ def update_pricing_with_conversion(request):
                 )
                 created_count += 1
             except Exception as e:
-                return Response({'error': f'Failed to create pricing for product {product.id}: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                return Response({'error': f'Failed to create pricing for product {product.name}: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     if created_count == 0:
         return Response({'error': 'No existing pricing data found for any products.'}, status=status.HTTP_404_NOT_FOUND)
@@ -482,19 +477,92 @@ def update_pricing_with_conversion(request):
 
 
 
+class PurchaseBillViewSet(viewsets.ModelViewSet):
+    queryset = PurchaseBill.objects.all()
+    serializer_class = PurchaseBillSerializer
+
+    def create(self, request, *args, **kwargs):
+        data = request.data
+        items_data = data.pop('items', [])
+        
+        purchase_bill = PurchaseBill.objects.create(**data)
+        
+        for item_data in items_data:
+            product = Product.objects.get(id=item_data['product']['id'])
+            PurchaseBillItem.objects.create(
+                purchase_bill=purchase_bill,
+                product=product,
+                quantity=item_data['quantity'],
+                unit_price=item_data['unit_price'],
+                location=item_data['location']
+            )
+        
+        purchase_bill.total_price = sum(item['quantity'] * item['unit_price'] for item in items_data)
+        purchase_bill.save()
+        
+        serializer = self.get_serializer(purchase_bill)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
+class SalesBillViewSet(viewsets.ModelViewSet):
+    queryset = SalesBill.objects.all()
+    serializer_class = SalesBillSerializer
 
+    def create(self, request, *args, **kwargs):
+        data = request.data
+        items_data = data.pop('items', [])
+        
+        # Create the SalesBill
+        sales_bill = SalesBill.objects.create(**data)
+        
+        total_price = 0
+        errors = []
 
+        for item_data in items_data:
+            product = Product.objects.get(id=item_data['product_id'])
+            quantity = item_data['quantity']
+            location = item_data['location']
 
+            # Assuming you have unit_price as part of the item_data (since it's not in Product)
+            unit_price = item_data.get('unit_price', 0)  # or set a default price if not provided
 
+            # Check stock availability
+            if location == 'EG':
+                if product.eg_stock < quantity:
+                    errors.append(f"Not enough stock for product {product.name} in Egypt.")
+                else:
+                    product.eg_stock -= quantity
+            elif location == 'AE':
+                if product.ae_stock < quantity:
+                    errors.append(f"Not enough stock for product {product.name} in UAE.")
+                else:
+                    product.ae_stock -= quantity
+            elif location == 'TR':
+                if product.tr_stock < quantity:
+                    errors.append(f"Not enough stock for product {product.name} in Turkey.")
+                else:
+                    product.tr_stock -= quantity
 
-
-
-
-
-
-
+            # Create the SalesBillItem if stock is sufficient
+            if not errors:
+                SalesBillItem.objects.create(
+                    sales_bill=sales_bill,
+                    product=product,
+                    quantity=quantity,
+                    location=location
+                )
+                total_price += quantity * unit_price
+            else:
+                # If errors are present, rollback the transaction and return errors
+                sales_bill.delete()
+                return Response({'errors': errors}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Update total price of the SalesBill
+        sales_bill.total_price = total_price
+        sales_bill.save()
+        
+        serializer = self.get_serializer(sales_bill)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
 

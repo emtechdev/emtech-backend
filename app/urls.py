@@ -17,8 +17,8 @@ router.register('productspecfication', views.ProductSpesficationViewset, 'produc
 router.register('product_pricing', views.PricingViewset, 'product_pricing')
 router.register('file', views.FileViewset, 'file')
 router.register('image', views.ImageViewset, 'image')
-# router.register('currency', views.CurrencyViewset, 'currency')
-
+router.register('purchase_bills', views.PurchaseBillViewSet)
+router.register('sales_bills', views.SalesBillViewSet)
 
 
 urlpatterns = [

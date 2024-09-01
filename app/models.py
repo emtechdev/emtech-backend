@@ -1,5 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.db import transaction
+from django.core.exceptions import ValidationError
 
 
 
@@ -67,7 +69,6 @@ class Product(models.Model):
     def __str__(self):
         return self.name
     
-
 
 
 
@@ -281,6 +282,12 @@ class Pricing(models.Model):
     def tr_final_price_eur_strlini(self):
         return self.tr_final_price_eur * self.eur_to_strlini
 
+    class Meta:
+        ordering = ['-time']
+
+
+
+
 class ProductSpesfication(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     name = models.CharField(max_length=255)
@@ -290,3 +297,64 @@ class ProductSpesfication(models.Model):
         return self.name
     
 
+class PurchaseBill(models.Model):
+    name = models.CharField(max_length=255)
+    products = models.ManyToManyField(Product, through='PurchaseBillItem')
+    purchase_date = models.DateTimeField(auto_now_add=True)
+    total_price = models.DecimalField(max_digits=10, decimal_places=2)
+
+
+class PurchaseBillItem(models.Model):
+    purchase_bill = models.ForeignKey(PurchaseBill, related_name='items', on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    quantity = models.PositiveIntegerField()
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2)
+    location = models.CharField(max_length=2, choices=[('EG', 'Egypt'), ('AE', 'UAE'), ('TR', 'Turkey')])
+
+    def __str__(self):
+        return f"{self.product.name} - {self.quantity}"
+
+    def save(self, *args, **kwargs):
+        with transaction.atomic():
+            super().save(*args, **kwargs)
+
+            if self.location == 'EG':
+                self.product.eg_stock += self.quantity
+            elif self.location == 'AE':
+                self.product.ae_stock += self.quantity
+            elif self.location == 'TR':
+                self.product.tr_stock += self.quantity
+            self.product.save()
+
+
+class SalesBill(models.Model):
+    name = models.CharField(max_length=255)
+    products = models.ManyToManyField(Product, through='SalesBillItem')
+    sales_date = models.DateTimeField(auto_now_add=True)
+    total_price = models.DecimalField(max_digits=10, decimal_places=2)
+
+class SalesBillItem(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    sales_bill = models.ForeignKey(SalesBill, on_delete=models.CASCADE)
+    quantity = models.IntegerField()
+    location = models.CharField(max_length=2, choices=[('EG', 'Egypt'), ('AE', 'UAE'), ('TR', 'Turkey')])
+
+
+    def save(self, *args, **kwargs):
+        with transaction.atomic():
+            # Check stock availability before saving
+            if self.location == 'EG':
+                if self.product.eg_stock < self.quantity:
+                    raise ValidationError(f"Not enough stock for product {self.product.name} in Egypt.")
+                self.product.eg_stock -= self.quantity
+            elif self.location == 'AE':
+                if self.product.ae_stock < self.quantity:
+                    raise ValidationError(f"Not enough stock for product {self.product.name} in UAE.")
+                self.product.ae_stock -= self.quantity
+            elif self.location == 'TR':
+                if self.product.tr_stock < self.quantity:
+                    raise ValidationError(f"Not enough stock for product {self.product.name} in Turkey.")
+                self.product.tr_stock -= self.quantity
+            
+            super().save(*args, **kwargs)
+            self.product.save()
