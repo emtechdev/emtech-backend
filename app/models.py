@@ -69,33 +69,217 @@ class Product(models.Model):
     
 
 
+
+
     
 class Pricing(models.Model):
+
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     time = models.DateTimeField(auto_now_add=True, null= True, blank=True)
-    eg_buy_price = models.IntegerField()
-    eg_cost = models.IntegerField()
-    eg_profit = models.IntegerField()
-    ae_buy_price = models.IntegerField()
-    ae_cost = models.IntegerField()
-    ae_profit = models.IntegerField()
-    tr_buy_price = models.IntegerField()
-    tr_cost = models.IntegerField()
-    tr_profit = models.IntegerField()
+    eg_buy_price = models.FloatField()
+    eg_cost = models.FloatField()
+    eg_profit = models.FloatField()
+    ae_buy_price = models.FloatField()
+    ae_cost = models.FloatField()
+    ae_profit = models.FloatField()
+    tr_buy_price = models.FloatField()
+    tr_cost = models.FloatField()
+    tr_profit = models.FloatField()
+
+    usd_to_egp = models.FloatField( default=1)
+    usd_to_eur = models.FloatField(default=1)
+    usd_to_tr = models.FloatField(default=1)
+    usd_to_rs = models.FloatField(default=1)
+    usd_to_ae = models.FloatField(default=1)
+    usd_to_strlini = models.FloatField(default=1)
+
+    eur_to_egp = models.FloatField(default=1 )
+    eur_to_usd = models.FloatField(default=1)
+    eur_to_tr = models.FloatField(default=1)
+    eur_to_rs = models.FloatField(default=1)
+    eur_to_ae = models.FloatField(default=1)
+    eur_to_strlini = models.FloatField(default=1)
+
 
     @property
-    def eg_final_price(self):
+    def eg_final_price_usd(self):
         return self.eg_buy_price * self.eg_profit * self.eg_cost
 
     @property
-    def ae_final_price(self):
+    def eg_final_price_usd(self):
+        return self.eg_buy_price * self.eg_profit * self.eg_cost    
+
+    @property
+    def eg_final_price_usd_egp(self):
+        return self.eg_final_price_usd * self.usd_to_egp
+    
+    @property
+    def eg_final_price_usd_eur(self):
+        return self.eg_final_price_usd * self.usd_to_eur
+    
+    @property
+    def eg_final_price_usd_tr(self):
+        return self.eg_final_price_usd * self.usd_to_tr
+    
+    @property
+    def eg_final_price_usd_rs(self):
+        return self.eg_final_price_usd * self.usd_to_rs
+    
+    @property
+    def eg_final_price_usd_ae(self):
+        return self.eg_final_price_usd * self.usd_to_ae
+    
+    @property 
+    def eg_final_price_usd_strlini(self):
+        return self.eg_final_price_usd * self.usd_to_strlini
+
+######################################################################################
+
+    @property
+    def eg_final_price_eur(self):
+        return self.eg_buy_price * self.eg_profit * self.eg_cost    
+
+
+    @property
+    def eg_final_price_eur_usd(self):
+        return self.eg_final_price_eur * self.eur_to_usd
+    
+    @property
+    def eg_final_price_eur_egp(self):
+        return self.eg_final_price_eur * self.eur_to_egp
+    
+    @property
+    def eg_final_price_eur_tr(self):
+        return self.eg_final_price_eur * self.eur_to_tr
+    
+    @property
+    def eg_final_price_eur_rs(self):
+        return self.eg_final_price_eur * self.eur_to_rs
+    
+    @property
+    def eg_final_price_eur_ae(self):
+        return self.eg_final_price_eur * self.eur_to_ae
+    
+    @property 
+    def eg_final_price_eur_strlini(self):
+        return self.eg_final_price_eur * self.eur_to_strlini
+
+
+###################################################################################
+
+    @property
+    def ae_final_price_usd(self):
         return self.ae_buy_price * self.ae_profit * self.ae_cost
     
     @property
-    def tr_final_price(self):
+    def ae_final_price_usd_egp(self):
+        return self.ae_final_price_usd * self.usd_to_egp
+    
+    @property
+    def ae_final_price_usd_eur(self):
+        return self.ae_final_price_usd * self.usd_to_eur
+    
+    @property
+    def ae_final_price_usd_tr(self):
+        return self.ae_final_price_usd * self.usd_to_tr
+    
+    @property
+    def ae_final_price_usd_rs(self):
+        return self.ae_final_price_usd * self.usd_to_rs
+    
+    @property
+    def ae_final_price_usd_ae(self):
+        return self.ae_final_price_usd * self.usd_to_ae
+    
+    @property 
+    def ae_final_price_usd_strlini(self):
+        return self.ae_final_price_usd * self.usd_to_strlini
+#################################################################################################
+
+    @property
+    def ae_final_price_eur(self):
+        return self.ae_buy_price * self.ae_profit * self.ae_cost
+
+    @property
+    def ae_final_price_eur_usd(self):
+        return self.ae_final_price_eur * self.eur_to_usd
+    
+    @property
+    def ae_final_price_eur_egp(self):
+        return self.ae_final_price_eur * self.eur_to_egp
+    
+    @property
+    def ae_final_price_eur_tr(self):
+        return self.ae_final_price_eur * self.eur_to_tr
+    
+    @property
+    def ae_final_price_eur_rs(self):
+        return self.ae_final_price_eur * self.eur_to_rs
+    
+    @property
+    def ae_final_price_eur_ae(self):
+        return self.ae_final_price_eur * self.eur_to_ae
+    
+    @property 
+    def ae_final_price_eur_strlini(self):
+        return self.ae_final_price_eur * self.eur_to_strlini
+#################################################################################################
+    @property
+    def tr_final_price_usd(self):
         return self.tr_buy_price * self.tr_profit * self.tr_cost
     
+    @property
+    def tr_final_price_usd_egp(self):
+        return self.tr_final_price_usd * self.usd_to_egp
+    
+    @property
+    def tr_final_price_usd_eur(self):
+        return self.tr_final_price_usd * self.usd_to_eur
+    
+    @property
+    def tr_final_price_usd_tr(self):
+        return self.tr_final_price_usd * self.usd_to_tr
+    
+    @property
+    def tr_final_price_usd_rs(self):
+        return self.tr_final_price_usd * self.usd_to_rs
+    
+    @property
+    def tr_final_price_usd_ae(self):
+        return self.tr_final_price_usd * self.usd_to_ae
+    
+    @property 
+    def tr_final_price_usd_strlini(self):
+        return self.tr_final_price_usd * self.usd_to_strlini
+#################################################################################################
 
+    @property
+    def tr_final_price_eur(self):
+        return self.tr_buy_price * self.tr_profit * self.tr_cost
+
+    @property
+    def tr_final_price_eur_usd(self):
+        return self.tr_final_price_eur * self.eur_to_usd
+    
+    @property
+    def tr_final_price_eur_egp(self):
+        return self.tr_final_price_eur * self.eur_to_egp
+    
+    @property
+    def tr_final_price_eur_tr(self):
+        return self.tr_final_price_eur * self.eur_to_tr
+    
+    @property
+    def tr_final_price_eur_rs(self):
+        return self.tr_final_price_eur * self.eur_to_rs
+    
+    @property
+    def tr_final_price_eur_ae(self):
+        return self.tr_final_price_eur * self.eur_to_ae
+    
+    @property 
+    def tr_final_price_eur_strlini(self):
+        return self.tr_final_price_eur * self.eur_to_strlini
 
 class ProductSpesfication(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
@@ -104,3 +288,5 @@ class ProductSpesfication(models.Model):
 
     def __str__(self):
         return self.name
+    
+

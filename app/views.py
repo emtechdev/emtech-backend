@@ -5,10 +5,12 @@ from rest_framework.response import Response
 from django.http import HttpResponse
 from django.core.exceptions import ValidationError
 from rest_framework import status
-from .models import (Category, SubCategory, Product, Pricing, ProductSpesfication, UserProfile, File, Image)
+from .models import (Category, SubCategory, Product, Pricing, ProductSpesfication,
+                      UserProfile, File, Image)
 from .serializers import (CategorySerializer, SubCategorySerializer,
                            ProductSerializer, PricingSerializer,
-                             ProductSpesficationSerializer , UserSerializer, FileSerializer, ImageSerializer)
+                             ProductSpesficationSerializer , UserSerializer,
+                               FileSerializer, ImageSerializer)
 
 from rest_framework.decorators import api_view
 from rest_framework import generics
@@ -170,6 +172,65 @@ class ProductViewset(viewsets.ModelViewSet):
     # search_fields = ['name', 'series', 'manufacturer', 'origin']
     # ordering_fields = '__all__'
 
+
+    @action(detail=False, methods=['post'], url_name='update_pricing_with_conversion', url_path='update-pricing-with-conversion')
+    def update_pricing_with_conversion(self, request):
+        # Get the conversion rates from the request
+        conversion_rates = request.data
+
+        # Validate required fields
+        required_fields = [
+            'usd_to_egp', 'usd_to_eur', 'usd_to_tr', 'usd_to_rs', 'usd_to_ae', 'usd_to_strlini',
+            'eur_to_egp', 'eur_to_usd', 'eur_to_tr', 'eur_to_rs', 'eur_to_ae', 'eur_to_strlini'
+        ]
+        missing_fields = [field for field in required_fields if field not in conversion_rates]
+        if missing_fields:
+            return Response({'error': f'Missing fields: {", ".join(missing_fields)}'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Check for valid values
+        invalid_fields = [field for field in required_fields if not isinstance(conversion_rates.get(field), (int, float))]
+        if invalid_fields:
+            return Response({'error': f'Invalid values for fields: {", ".join(invalid_fields)}'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Retrieve all products
+        products = Product.objects.all()
+
+        for product in products:
+            # Create new pricing instance with updated conversion rates
+            try:
+                Pricing.objects.create(
+                    product=product,
+                    curreny_entry='USD',  # Set default currency entry for new pricing
+                    eg_buy_price=product.eg_buy_price,  # Keep previous pricing fields
+                    eg_cost=product.eg_cost,
+                    eg_profit=product.eg_profit,
+                    ae_buy_price=product.ae_buy_price,
+                    ae_cost=product.ae_cost,
+                    ae_profit=product.ae_profit,
+                    tr_buy_price=product.tr_buy_price,
+                    tr_cost=product.tr_cost,
+                    tr_profit=product.tr_profit,
+                    usd_to_egp=conversion_rates['usd_to_egp'],
+                    usd_to_eur=conversion_rates['usd_to_eur'],
+                    usd_to_tr=conversion_rates['usd_to_tr'],
+                    usd_to_rs=conversion_rates['usd_to_rs'],
+                    usd_to_ae=conversion_rates['usd_to_ae'],
+                    usd_to_strlini=conversion_rates['usd_to_strlini'],
+                    eur_to_egp=conversion_rates['eur_to_egp'],
+                    eur_to_usd=conversion_rates['eur_to_usd'],
+                    eur_to_tr=conversion_rates['eur_to_tr'],
+                    eur_to_rs=conversion_rates['eur_to_rs'],
+                    eur_to_ae=conversion_rates['eur_to_ae'],
+                    eur_to_strlini=conversion_rates['eur_to_strlini']
+                )
+            except Exception as e:
+                return Response({'error': f'Failed to create pricing for product {product.id}: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        return Response({'success': 'New pricing added for all products successfully.'}, status=status.HTTP_201_CREATED)
+    
+
+
+
     @action(detail=True, methods=['post'])
     def add_selected_file(self, request, pk=None, url_name='add_selected_file', url_path='add_selected_file'):
         product = self.get_object()
@@ -247,6 +308,7 @@ class ProductViewset(viewsets.ModelViewSet):
             'tr_buy_price': request.data.get('tr_buy_price'),
             'tr_cost': request.data.get('tr_cost'),
             'tr_profit': request.data.get('tr_profit'),
+          
         }
 
         missing_fields = [key for key, value in pricing_data.items() if value is None]
@@ -260,13 +322,12 @@ class ProductViewset(viewsets.ModelViewSet):
         try:
             pricing = Pricing.objects.create(product=product, **pricing_data)
         except ValidationError as e:
-            print(str(e))
             return Response({'error': f'Validation error: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
-            print(str(e))
             return Response({'error': f'Failed to create Pricing: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         return Response({'success': 'Pricing added successfully.'}, status=status.HTTP_201_CREATED)
+    
 
     @action(detail=True, methods=['get'], url_name='get_pricing_customer', url_path='get_pricing_customer')
     def get_pricing_customer(self, request, pk=None):
@@ -351,3 +412,180 @@ class ImageViewset(viewsets.ModelViewSet):
     queryset = Image.objects.all()
     serializer_class = ImageSerializer
     parser_classes = [MultiPartParser, FormParser] 
+
+
+
+
+@api_view(['POST'])
+def update_pricing_with_conversion(request):
+    # Get the conversion rates from the request
+    conversion_rates = request.data
+
+    # Validate required fields
+    required_fields = [
+        'usd_to_egp', 'usd_to_eur', 'usd_to_tr', 'usd_to_rs', 'usd_to_ae', 'usd_to_strlini',
+        'eur_to_egp', 'eur_to_usd', 'eur_to_tr', 'eur_to_rs', 'eur_to_ae', 'eur_to_strlini'
+    ]
+    missing_fields = [field for field in required_fields if field not in conversion_rates]
+    if missing_fields:
+        return Response({'error': f'Missing fields: {", ".join(missing_fields)}'}, status=status.HTTP_400_BAD_REQUEST)
+
+    invalid_fields = [field for field in required_fields if not isinstance(conversion_rates.get(field), (int, float))]
+    if invalid_fields:
+        return Response({'error': f'Invalid values for fields: {", ".join(invalid_fields)}'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Retrieve all products
+    products = Product.objects.all()
+    created_count = 0
+
+    for product in products:
+        # Check if there is existing pricing for the product
+        existing_pricing = Pricing.objects.filter(product=product).first()
+
+        if existing_pricing:
+            # Create a new pricing entry with updated conversion rates
+            try:
+                Pricing.objects.create(
+                    product=product,
+                    eg_buy_price=existing_pricing.eg_buy_price,
+                    eg_cost=existing_pricing.eg_cost,
+                    eg_profit=existing_pricing.eg_profit,
+                    ae_buy_price=existing_pricing.ae_buy_price,
+                    ae_cost=existing_pricing.ae_cost,
+                    ae_profit=existing_pricing.ae_profit,
+                    tr_buy_price=existing_pricing.tr_buy_price,
+                    tr_cost=existing_pricing.tr_cost,
+                    tr_profit=existing_pricing.tr_profit,
+                    usd_to_egp=conversion_rates.get('usd_to_egp'),
+                    usd_to_eur=conversion_rates.get('usd_to_eur'),
+                    usd_to_tr=conversion_rates.get('usd_to_tr'),
+                    usd_to_rs=conversion_rates.get('usd_to_rs'),
+                    usd_to_ae=conversion_rates.get('usd_to_ae'),
+                    usd_to_strlini=conversion_rates.get('usd_to_strlini'),
+                    eur_to_egp=conversion_rates.get('eur_to_egp'),
+                    eur_to_usd=conversion_rates.get('eur_to_usd'),
+                    eur_to_tr=conversion_rates.get('eur_to_tr'),
+                    eur_to_rs=conversion_rates.get('eur_to_rs'),
+                    eur_to_ae=conversion_rates.get('eur_to_ae'),
+                    eur_to_strlini=conversion_rates.get('eur_to_strlini')
+                )
+                created_count += 1
+            except Exception as e:
+                return Response({'error': f'Failed to create pricing for product {product.id}: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    if created_count == 0:
+        return Response({'error': 'No existing pricing data found for any products.'}, status=status.HTTP_404_NOT_FOUND)
+
+    return Response({'success': f'New pricing added for {created_count} products successfully.'}, status=status.HTTP_201_CREATED)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# @api_view(['POST'])
+# def update_pricing_with_conversion(request):
+#     # Get the conversion rates from the request
+#     conversion_rates = request.data
+
+#     # Validate required fields
+#     required_fields = [
+#         'usd_to_egp', 'usd_to_eur', 'usd_to_tr', 'usd_to_rs', 'usd_to_ae', 'usd_to_strlini',
+#         'eur_to_egp', 'eur_to_usd', 'eur_to_tr', 'eur_to_rs', 'eur_to_ae', 'eur_to_strlini'
+#     ]
+#     missing_fields = [field for field in required_fields if field not in conversion_rates]
+#     if missing_fields:
+#         return Response({'error': f'Missing fields: {", ".join(missing_fields)}'}, status=status.HTTP_400_BAD_REQUEST)
+
+#     invalid_fields = [field for field in required_fields if not isinstance(conversion_rates.get(field), (int, float))]
+#     if invalid_fields:
+#         return Response({'error': f'Invalid values for fields: {", ".join(invalid_fields)}'}, status=status.HTTP_400_BAD_REQUEST)
+
+#     # Retrieve all products
+#     products = Product.objects.all()
+
+#     for product in products:
+#         # Check if there is existing pricing for the product
+#         existing_pricing = Pricing.objects.filter(product=product).first()
+        
+#         if existing_pricing:
+#             # If existing pricing is found, create a new pricing entry with updated conversion rates
+#             try:
+#                 Pricing.objects.create(
+#                     product=product,
+#                     eg_buy_price=existing_pricing.eg_buy_price,
+#                     eg_cost=existing_pricing.eg_cost,
+#                     eg_profit=existing_pricing.eg_profit,
+#                     ae_buy_price=existing_pricing.ae_buy_price,
+#                     ae_cost=existing_pricing.ae_cost,
+#                     ae_profit=existing_pricing.ae_profit,
+#                     tr_buy_price=existing_pricing.tr_buy_price,
+#                     tr_cost=existing_pricing.tr_cost,
+#                     tr_profit=existing_pricing.tr_profit,
+#                     usd_to_egp=conversion_rates.get('usd_to_egp'),
+#                     usd_to_eur=conversion_rates.get('usd_to_eur'),
+#                     usd_to_tr=conversion_rates.get('usd_to_tr'),
+#                     usd_to_rs=conversion_rates.get('usd_to_rs'),
+#                     usd_to_ae=conversion_rates.get('usd_to_ae'),
+#                     usd_to_strlini=conversion_rates.get('usd_to_strlini'),
+#                     eur_to_egp=conversion_rates.get('eur_to_egp'),
+#                     eur_to_usd=conversion_rates.get('eur_to_usd'),
+#                     eur_to_tr=conversion_rates.get('eur_to_tr'),
+#                     eur_to_rs=conversion_rates.get('eur_to_rs'),
+#                     eur_to_ae=conversion_rates.get('eur_to_ae'),
+#                     eur_to_strlini=conversion_rates.get('eur_to_strlini')
+#                 )
+#             except Exception as e:
+#                 return Response({'error': f'Failed to create pricing for product {product.id}: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+#         else:
+#             # If no existing pricing is found, handle accordingly
+#             return Response({'error': f'No existing pricing data for product {product.id}'}, status=status.HTTP_404_NOT_FOUND)
+
+#     return Response({'success': 'New pricing added for all products successfully.'}, status=status.HTTP_201_CREATED)
+
+# class CurrencyViewset(viewsets.ModelViewSet):
+#     queryset = Currency.objects.all()
+#     serializer_class = CurrencySerializer
+
+#     @action(detail=True, methods=['post'], url_name='add_value', url_path='add_value')
+#     def add_value(self, request, pk=None):
+#         if pk is None:
+#             return Response({'error': 'Currency ID is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+#         try:
+#             currency = Currency.objects.get(pk=pk)
+#         except Currency.DoesNotExist:
+#             return Response({'error': 'Currency not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+#         value = request.data.get('value')
+
+
+#         if not value:
+#             return Response({'error': 'value is required and cannot be empty.'}, status=status.HTTP_400_BAD_REQUEST)
+
+#         try:
+#             currency_value = CurrencyValue.objects.create(
+#                 value=value,
+#                 currency=currency
+#             )
+#         except Exception as e:
+#             return Response({'error': f'Failed to add currency_value: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+#         return Response({'success': 'currency_value added successfully.'}, status=status.HTTP_201_CREATED)
+

@@ -17,6 +17,7 @@ router.register('productspecfication', views.ProductSpesficationViewset, 'produc
 router.register('product_pricing', views.PricingViewset, 'product_pricing')
 router.register('file', views.FileViewset, 'file')
 router.register('image', views.ImageViewset, 'image')
+# router.register('currency', views.CurrencyViewset, 'currency')
 
 
 
@@ -26,6 +27,7 @@ urlpatterns = [
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('register/', views.register),
     path('users/',views.UserListView.as_view(), name='user_list'),
+    path('update_pricing_with_conversion/', views.update_pricing_with_conversion, name='update_pricing_with_conversion'),
 
 
 ]
