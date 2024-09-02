@@ -503,7 +503,6 @@ class PurchaseBillViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(purchase_bill)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-
 class SalesBillViewSet(viewsets.ModelViewSet):
     queryset = SalesBill.objects.all()
     serializer_class = SalesBillSerializer
@@ -516,7 +515,6 @@ class SalesBillViewSet(viewsets.ModelViewSet):
         sales_bill = SalesBill.objects.create(**data)
         
         total_price = 0
-        errors = []
 
         for item_data in items_data:
             product = Product.objects.get(id=item_data['product_id'])
@@ -525,37 +523,16 @@ class SalesBillViewSet(viewsets.ModelViewSet):
 
             # Assuming you have unit_price as part of the item_data (since it's not in Product)
             unit_price = item_data.get('unit_price', 0)  # or set a default price if not provided
-
-            # Check stock availability
-            if location == 'EG':
-                if product.eg_stock < quantity:
-                    errors.append(f"Not enough stock for product {product.name} in Egypt.")
-                else:
-                    product.eg_stock -= quantity
-            elif location == 'AE':
-                if product.ae_stock < quantity:
-                    errors.append(f"Not enough stock for product {product.name} in UAE.")
-                else:
-                    product.ae_stock -= quantity
-            elif location == 'TR':
-                if product.tr_stock < quantity:
-                    errors.append(f"Not enough stock for product {product.name} in Turkey.")
-                else:
-                    product.tr_stock -= quantity
-
-            # Create the SalesBillItem if stock is sufficient
-            if not errors:
-                SalesBillItem.objects.create(
-                    sales_bill=sales_bill,
-                    product=product,
-                    quantity=quantity,
-                    location=location
-                )
-                total_price += quantity * unit_price
-            else:
-                # If errors are present, rollback the transaction and return errors
-                sales_bill.delete()
-                return Response({'errors': errors}, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Create the SalesBillItem
+            SalesBillItem.objects.create(
+                sales_bill=sales_bill,
+                product=product,
+                quantity=quantity,
+                location=location
+            )
+            
+            total_price += quantity * unit_price
         
         # Update total price of the SalesBill
         sales_bill.total_price = total_price
@@ -563,6 +540,8 @@ class SalesBillViewSet(viewsets.ModelViewSet):
         
         serializer = self.get_serializer(sales_bill)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
 
 
 

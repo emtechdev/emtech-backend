@@ -150,9 +150,21 @@ class UserSerializer(serializers.ModelSerializer):
     
 
 class ProductSerializer(serializers.ModelSerializer):
+    file_url = serializers.SerializerMethodField()
+    image = ImageSerializer()
+
     class Meta:
         model = Product
-        fields = ['id', 'name', 'eg_stock', 'ae_stock', 'tr_stock']
+        fields = ('id', 'subcategory', 'file_url', 'file', 'name',
+                  'image', 'description', 'series',
+                  'manfacturer', 'origin', 'eg_stock',
+                  'ae_stock', 'tr_stock')
+
+    def get_file_url(self, obj):
+        if obj.file:
+            return obj.file.file.url
+        return None
+    
 
 class PurchaseBillItemSerializer(serializers.ModelSerializer):
     product = ProductSerializer()
@@ -168,36 +180,69 @@ class PurchaseBillSerializer(serializers.ModelSerializer):
         model = PurchaseBill
         fields = ['id', 'name', 'purchase_date', 'total_price', 'items']
 
+
+
+
 class SalesBillItemSerializer(serializers.ModelSerializer):
-    product_id = serializers.IntegerField(write_only=True)
-    product = ProductSerializer(read_only=True)
+    product = ProductSerializer()
 
     class Meta:
         model = SalesBillItem
-        fields = ['id', 'product', 'product_id', 'quantity', 'location']
+        fields = ['id', 'product',  'quantity', 'location']
 
     def create(self, validated_data):
         product_id = validated_data.pop('product_id')
         product = Product.objects.get(id=product_id)
         validated_data['product'] = product
         return super().create(validated_data)
-    
+
+
+
 class SalesBillSerializer(serializers.ModelSerializer):
+    items = SalesBillItemSerializer(many=True, read_only=True, source='salesbillitem_set')
 
     class Meta:
         model = SalesBill
-        fields = ['id', 'name', 'sales_date', 'total_price']
+        fields = ['id', 'name', 'sales_date', 'total_price', 'items']
 
     def create(self, validated_data):
-        items_data = validated_data.pop('items')
+        items_data = self.context['request'].data.get('items', [])
         sales_bill = SalesBill.objects.create(**validated_data)
 
         total_price = 0
         for item_data in items_data:
-            item_data['sales_bill'] = sales_bill
-            item = SalesBillItemSerializer().create(item_data)
-            total_price += item.quantity * item.product.unit_price  # Calculate total price
+            product = Product.objects.get(id=item_data['product']['id'])
+            quantity = item_data['quantity']
+            location = item_data['location']
+            unit_price = product.unit_price  # Ensure this field is available on the product
+
+            # Check stock availability
+            if location == 'EG':
+                if product.eg_stock < quantity:
+                    raise serializers.ValidationError(f"Not enough stock for product {product.name} in Egypt.")
+                product.eg_stock -= quantity
+            elif location == 'AE':
+                if product.ae_stock < quantity:
+                    raise serializers.ValidationError(f"Not enough stock for product {product.name} in UAE.")
+                product.ae_stock -= quantity
+            elif location == 'TR':
+                if product.tr_stock < quantity:
+                    raise serializers.ValidationError(f"Not enough stock for product {product.name} in Turkey.")
+                product.tr_stock -= quantity
+            
+            product.save()
+
+            # Create SalesBillItem
+            SalesBillItem.objects.create(
+                sales_bill=sales_bill,
+                product=product,
+                quantity=quantity,
+                location=location
+            )
+
+            total_price += quantity * unit_price
 
         sales_bill.total_price = total_price
         sales_bill.save()
+
         return sales_bill
