@@ -64,8 +64,30 @@ class Product(models.Model):
     ae_stock = models.IntegerField()
     tr_stock = models.IntegerField()
 
-
-    
+    def adjust_stock(self, quantity, location):
+        print(f"Adjusting stock for product {self.id} with quantity {quantity} and location {location}")
+        
+        if location == 'EG':
+            if self.eg_stock >= quantity:
+                self.eg_stock -= quantity
+            else:
+                raise ValueError('Insufficient stock for EG location')
+        elif location == 'AE':
+            if self.ae_stock >= quantity:
+                self.ae_stock -= quantity
+            else:
+                raise ValueError('Insufficient stock for AE location')
+        elif location == 'TR':
+            if self.tr_stock >= quantity:
+                self.tr_stock -= quantity
+            else:
+                raise ValueError('Insufficient stock for TR location')
+        else:
+            raise ValueError('Invalid location')
+        
+        self.save()
+        print(f"Updated stock: EG={self.eg_stock}, AE={self.ae_stock}, TR={self.tr_stock}")
+        
     def __str__(self):
         return self.name
     
@@ -358,3 +380,69 @@ class SalesBillItem(models.Model):
             
             super().save(*args, **kwargs)
             self.product.save()
+
+
+
+
+
+class ProductBill(models.Model):
+    CURRENCY_CHOICES = [
+        ('USD', 'USD'),
+        ('EUR', 'EUR'),
+        ('EGP', 'EGP'),
+        ('TR', 'TR'),
+        ('RS', 'RS'),
+        ('AE', 'AE'),
+        ('STR', 'STR'),
+    ]
+
+    currency = models.CharField(max_length=3, choices=CURRENCY_CHOICES)
+    discount = models.FloatField(default=0)  # Discount as a percentage
+    location = models.CharField(max_length=3, choices=[('EG', 'Egypt'), ('AE', 'UAE'), ('TR', 'Turkey')])
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def apply_discount(self, total_amount):
+        return total_amount - (total_amount * (self.discount / 100))
+
+    def get_total_price(self):
+        total_amount = sum(item.get_total_price() for item in self.items.all())
+        return self.apply_discount(total_amount)
+
+    def get_detailed_items(self):
+        return [
+            {
+                'product_name': item.product.name,
+                'product_series': item.product.series,
+                'product_origin': item.product.origin,
+                'product_manufacturer': item.product.manufacturer,
+                'unit_price': item.unit_price,
+                'quantity': item.quantity,
+                'total_price': item.get_total_price()
+            }
+            for item in self.items.all()
+        ]
+
+
+    def __str__(self):
+        return f"Bill {self.id} - {self.currency} - {self.location}"
+    
+
+class ProductBillItem(models.Model):
+    product_bill = models.ForeignKey(ProductBill, related_name='items', on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    quantity = models.IntegerField()
+    unit_price = models.FloatField()
+    location = models.CharField(max_length=50)
+
+    def get_total_price(self):
+        return self.unit_price * self.quantity
+
+    def __str__(self):
+        return f"{self.product.name} - {self.quantity} units"
+
+    def save(self, *args, **kwargs):
+        # Adjust stock based on location
+        self.product.adjust_stock(self.quantity, self.location)
+        super().save(*args, **kwargs)
+
+

@@ -6,11 +6,15 @@ from django.http import HttpResponse
 from django.core.exceptions import ValidationError
 from rest_framework import status
 from .models import (Category, SubCategory, Product, Pricing, ProductSpesfication,
-                      UserProfile, File, Image, PurchaseBill, PurchaseBillItem, SalesBill, SalesBillItem)
+                      UserProfile, File, Image, PurchaseBill, PurchaseBillItem,
+                        SalesBill, SalesBillItem, ProductBill, ProductBillItem)
 from .serializers import (CategorySerializer, SubCategorySerializer,
                            ProductSerializer, PricingSerializer,
                              ProductSpesficationSerializer , UserSerializer,
-                               FileSerializer, ImageSerializer, PurchaseBillSerializer, PurchaseBillItemSerializer, SalesBillSerializer, SalesBillItemSerializer)
+                               FileSerializer, ImageSerializer,
+                                 PurchaseBillSerializer, PurchaseBillItemSerializer,
+                                   SalesBillSerializer, SalesBillItemSerializer, ProductBillItemSerializer,
+                                     ProductBillSerializer)
 
 from rest_framework.decorators import api_view
 from rest_framework import generics
@@ -167,6 +171,7 @@ class SubCategoryViewset(viewsets.ModelViewSet):
 class ProductViewset(viewsets.ModelViewSet):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
+    paginate_by = 10
     # filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     # filterset_fields = '__all__'
     # search_fields = ['name', 'series', 'manufacturer', 'origin']
@@ -394,11 +399,12 @@ class ProductViewset(viewsets.ModelViewSet):
         return Response({'success': 'Specification added successfully.'}, status=status.HTTP_201_CREATED)
 
 class PricingViewset(viewsets.ModelViewSet):
-    queryset = Pricing.objects.all()
+    queryset = Pricing.objects.all().prefetch_related('product')
     serializer_class = PricingSerializer
+    paginate_by = 10
 
 class ProductSpesficationViewset(viewsets.ModelViewSet):
-    queryset = ProductSpesfication.objects.all()
+    queryset = ProductSpesfication.objects.all().prefetch_related('product')
     serializer_class = ProductSpesficationSerializer
     
 
@@ -478,8 +484,9 @@ def update_pricing_with_conversion(request):
 
 
 class PurchaseBillViewSet(viewsets.ModelViewSet):
-    queryset = PurchaseBill.objects.all()
+    queryset = PurchaseBill.objects.all().prefetch_related('products')
     serializer_class = PurchaseBillSerializer
+    paginate_by = 10
 
     def create(self, request, *args, **kwargs):
         data = request.data
@@ -504,8 +511,9 @@ class PurchaseBillViewSet(viewsets.ModelViewSet):
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 class SalesBillViewSet(viewsets.ModelViewSet):
-    queryset = SalesBill.objects.all()
+    queryset = SalesBill.objects.all().prefetch_related('products')
     serializer_class = SalesBillSerializer
+    paginate_by = 10
 
     def create(self, request, *args, **kwargs):
         data = request.data
@@ -540,6 +548,176 @@ class SalesBillViewSet(viewsets.ModelViewSet):
         
         serializer = self.get_serializer(sales_bill)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+
+class ProductBillViewSet(viewsets.ModelViewSet):
+    queryset = ProductBill.objects.all()
+    serializer_class = ProductBillSerializer
+    paginate_by = 10
+    @action(detail=False, methods=['post'])
+    def create_with_products(self, request):
+        data = request.data
+        currency = data.get('currency')
+        discount = data.get('discount', 0)
+        location = data.get('location')
+        products = data.get('products', [])
+
+        # Validate discount
+        if discount > 30:
+            return Response({'error': 'Discount cannot exceed 30%'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Create ProductBill instance
+        product_bill = ProductBill(currency=currency, discount=discount, location=location)
+        product_bill.save()
+
+        total_amount = 0
+        errors = []
+
+        for item in products:
+            product_id = item['product_id']
+            quantity = item['quantity']
+
+            # Get the latest pricing for the product
+            try:
+                pricing = Pricing.objects.filter(product_id=product_id).latest('time')
+            except Pricing.DoesNotExist:
+                errors.append(f'Pricing not found for product {product_id}')
+                continue
+
+            # Calculate the unit price based on currency
+            if currency == 'USD':
+                unit_price = pricing.eg_final_price_usd
+            elif currency == 'EUR':
+                unit_price = pricing.eg_final_price_eur
+            elif currency == 'EGP':
+                unit_price = pricing.eg_final_price_usd_egp
+            elif currency == 'TR':
+                unit_price = pricing.eg_final_price_usd_tr
+            elif currency == 'RS':
+                unit_price = pricing.eg_final_price_usd_rs
+            elif currency == 'AE':
+                unit_price = pricing.eg_final_price_usd_ae
+            elif currency == 'STR':
+                unit_price = pricing.eg_final_price_usd_strlini
+            else:
+                return Response({'error': 'Invalid currency'}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Calculate total amount
+            total_amount += unit_price * quantity
+
+            # Adjust product stock
+            try:
+                product = Product.objects.get(id=product_id)
+                product.adjust_stock(quantity, location)
+            except Product.DoesNotExist:
+                errors.append(f'Product not found for ID {product_id}')
+            except ValueError as e:
+                errors.append(str(e))
+
+            # Create ProductBillItem instance if no errors
+            if not errors:
+                ProductBillItem.objects.create(
+                    product_bill=product_bill,
+                    product_id=product_id,
+                    quantity=quantity,
+                    unit_price=unit_price,
+                    location=location
+                )
+
+        if errors:
+            return Response({'errors': errors}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Apply discount
+        total_amount = product_bill.apply_discount(total_amount)
+
+        return Response({'bill_id': product_bill.id, 'total_amount': total_amount}, status=status.HTTP_201_CREATED)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

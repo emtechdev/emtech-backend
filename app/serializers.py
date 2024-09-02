@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Category, SubCategory, Product, Pricing, ProductSpesfication, UserProfile, File, Image, PurchaseBill , PurchaseBillItem, SalesBill, SalesBillItem
+from .models import Category, SubCategory, Product, Pricing, ProductSpesfication, UserProfile, File, Image, PurchaseBill , PurchaseBillItem, SalesBill, SalesBillItem, ProductBill , ProductBillItem
 from django.db import transaction
 
 
@@ -246,3 +246,31 @@ class SalesBillSerializer(serializers.ModelSerializer):
         sales_bill.save()
 
         return sales_bill
+
+
+class ProductBillItemSerializer(serializers.ModelSerializer):
+    product_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ProductBillItem
+        fields = ['product', 'product_name', 'quantity', 'unit_price', 'location']
+
+    def get_product_name(self, obj):
+        return obj.product.name
+
+class ProductBillSerializer(serializers.ModelSerializer):
+    items = ProductBillItemSerializer(many=True, read_only=True)
+    total_price = serializers.SerializerMethodField()
+    product_names = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ProductBill
+        fields = ['id', 'currency', 'discount', 'location', 'created_at', 'items', 'total_price', 'product_names']
+
+    def get_total_price(self, obj):
+        # Call the get_total_price method from ProductBill model
+        return obj.get_total_price()
+
+    def get_product_names(self, obj):
+        # Create a list of product names from the bill items
+        return [item.product.name for item in obj.items.all()]

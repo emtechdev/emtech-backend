@@ -47,6 +47,11 @@ INSTALLED_APPS = [
 
 ]
 
+REST_FRAMEWORK = {
+    'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
+    # ... other settings
+}
+
 
 CORS_ORIGIN_ALLOW_ALL = True
 

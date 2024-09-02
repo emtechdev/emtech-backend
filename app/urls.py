@@ -19,6 +19,7 @@ router.register('file', views.FileViewset, 'file')
 router.register('image', views.ImageViewset, 'image')
 router.register('purchase_bills', views.PurchaseBillViewSet)
 router.register('sales_bills', views.SalesBillViewSet)
+router.register('product_bills', views.ProductBillViewSet)
 
 
 urlpatterns = [
