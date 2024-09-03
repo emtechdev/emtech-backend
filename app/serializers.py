@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Category, SubCategory, Product, Pricing, ProductSpesfication, UserProfile, File, Image, PurchaseBill , PurchaseBillItem, SalesBill, SalesBillItem, ProductBill , ProductBillItem
+from .models import Category, SubCategory, Product, Pricing, ProductSpesfication, UserProfile, File, Image, PurchaseBill , PurchaseBillItem, SalesBill, SalesBillItem, ProductBill , ProductBillItem, Specification, ProductSpesfication
 from django.db import transaction
 
 
@@ -9,10 +9,27 @@ class CategorySerializer(serializers.ModelSerializer):
         model = Category
         fields = '__all__'
 
+
+class SpecificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Specification
+        fields = ['id', 'name', 'value']
+
+class ProductSpesficationSerializer(serializers.ModelSerializer):
+    specification = SpecificationSerializer()
+
+    class Meta:
+        model = ProductSpesfication
+        fields = ['id', 'product', 'specification', 'value']
+
+
 class SubCategorySerializer(serializers.ModelSerializer):
+    specifications = SpecificationSerializer(many=True, read_only=True)
+
     class Meta:
         model = SubCategory
-        fields = '__all__'
+        fields = ['id', 'name', 'category', 'specifications']
+
 
 class FileSerializer(serializers.ModelSerializer):
     class Meta:
@@ -123,10 +140,6 @@ class PricingSerializer(serializers.ModelSerializer):
         )
 
 
-class ProductSpesficationSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ProductSpesfication
-        fields = '__all__'
 
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:

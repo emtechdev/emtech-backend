@@ -18,6 +18,15 @@ class UserProfile(models.Model):
     def __str__(self):
         return f"{self.user.username} ({self.kind})"
     
+class Specification(models.Model):
+    name = models.CharField(max_length=255)  # Name of the specification, e.g., "Color", "Size"
+    value = models.CharField(max_length=255)  # Value of the specification, e.g., "Red", "Large"
+
+    def __str__(self):
+        return f"{self.name}: {self.value}"
+
+
+
 
     
 class Category(models.Model):
@@ -30,6 +39,7 @@ class Category(models.Model):
 class SubCategory(models.Model):
     name = models.CharField(max_length=255, unique=True)
     category = models.ForeignKey(Category, on_delete=models.CASCADE)
+    specifications = models.ManyToManyField(Specification, related_name='subcategories', blank=True, null=True)
 
     def __str__(self):
         return self.name
@@ -92,7 +102,14 @@ class Product(models.Model):
         return self.name
     
 
+class ProductSpesfication(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='specifications')
+    specification = models.ForeignKey(Specification, on_delete=models.CASCADE, null=True, blank=True)
+    value = models.CharField(max_length=255)  
 
+    def __str__(self):
+        return f"{self.product.name} - {self.specification.name}: {self.value}"
+    
 
     
 class Pricing(models.Model):
@@ -308,16 +325,6 @@ class Pricing(models.Model):
         ordering = ['-time']
 
 
-
-
-class ProductSpesfication(models.Model):
-    product = models.ForeignKey(Product, on_delete=models.CASCADE)
-    name = models.CharField(max_length=255)
-    value = models.CharField(max_length=255)
-
-    def __str__(self):
-        return self.name
-    
 
 class PurchaseBill(models.Model):
     name = models.CharField(max_length=255)

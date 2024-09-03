@@ -7,14 +7,15 @@ from django.core.exceptions import ValidationError
 from rest_framework import status
 from .models import (Category, SubCategory, Product, Pricing, ProductSpesfication,
                       UserProfile, File, Image, PurchaseBill, PurchaseBillItem,
-                        SalesBill, SalesBillItem, ProductBill, ProductBillItem)
+                        SalesBill, SalesBillItem, ProductBill, ProductBillItem,
+                          Specification, ProductSpesfication)
 from .serializers import (CategorySerializer, SubCategorySerializer,
                            ProductSerializer, PricingSerializer,
                              ProductSpesficationSerializer , UserSerializer,
                                FileSerializer, ImageSerializer,
                                  PurchaseBillSerializer, PurchaseBillItemSerializer,
                                    SalesBillSerializer, SalesBillItemSerializer, ProductBillItemSerializer,
-                                     ProductBillSerializer)
+                                     ProductBillSerializer, SpecificationSerializer, ProductSpesficationSerializer)
 
 from rest_framework.decorators import api_view
 from rest_framework import generics
@@ -83,6 +84,34 @@ class CategoryViewset(viewsets.ModelViewSet):
 class SubCategoryViewset(viewsets.ModelViewSet):
     queryset = SubCategory.objects.all()
     serializer_class = SubCategorySerializer
+
+class SubCategoryViewset(viewsets.ModelViewSet):
+    queryset = SubCategory.objects.all()
+    serializer_class = SubCategorySerializer
+
+    @action(detail=True, methods=['post'], url_name='add_specification', url_path='add_specification')
+    def add_specification(self, request, pk=None):
+        subcategory = self.get_object()  # Get the specific subcategory by ID
+        spec_data = request.data
+
+        # Validate that both name and value are provided
+        name = spec_data.get('name')
+        value = spec_data.get('value')
+
+        if not name or not value:
+            return Response({'error': 'Specification name and value are required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Create or get the specification
+        specification, created = Specification.objects.get_or_create(name=name, value=value)
+
+        # Add the specification to the subcategory
+        subcategory.specifications.add(specification)
+
+        return Response({
+            'success': 'Specification added to subcategory.',
+            'specification': SpecificationSerializer(specification).data
+        }, status=status.HTTP_201_CREATED)
+
 
     @action(detail=True, methods=['get'], url_name='get_product_detail', url_path='get_product_detail')
     def get_product_detail(self, request, pk=None):
@@ -356,47 +385,111 @@ class ProductViewset(viewsets.ModelViewSet):
         serializer = PricingSerializer(pricing, many=True)
         return Response(serializer.data)
 
-    @action(detail=True, methods=['get'], url_name='get_specification', url_path='get_specification')
-    def get_specification(self, request, pk=None):
-        try:
-            product = Product.objects.get(pk=pk)
-        except Product.DoesNotExist:
-            return Response({'error': 'Product not found.'}, status=status.HTTP_404_NOT_FOUND)
-
-        specification = ProductSpesfication.objects.filter(product=product).prefetch_related('product')
-        serializer = ProductSpesficationSerializer(specification, many=True)
+    @action(detail=True, methods=['get'], url_path='specifications')
+    def list_specifications(self, request, pk=None):
+        """List all specifications for the subcategory related to a specific product."""
+        product = self.get_object()
+        subcategory = product.subcategory
+        
+        # Retrieve all specifications related to the subcategory
+        specifications = subcategory.specifications.all()
+        
+        serializer = SpecificationSerializer(specifications, many=True)
         return Response(serializer.data)
 
-    @action(detail=True, methods=['post'], url_name='add_specification', url_path='add_specification')
+
+
+
+
+
+    @action(detail=True, methods=['post'], url_path='add_specification')
     def add_specification(self, request, pk=None):
-        if pk is None:
-            return Response({'error': 'Product ID is required.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            product = Product.objects.get(pk=pk)
-        except Product.DoesNotExist:
-            return Response({'error': 'Product not found.'}, status=status.HTTP_404_NOT_FOUND)
-
-        name = request.data.get('name')
+        product = self.get_object()
+        specification_id = request.data.get('specification_id')
         value = request.data.get('value')
 
-        if not name:
-            return Response({'error': 'Specification name is required.'}, status=status.HTTP_400_BAD_REQUEST)
-        if not value:
-            return Response({'error': 'Specification value is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            specification = Specification.objects.get(id=specification_id, subcategory=product.subcategory)
+            
+            product_specification, created = ProductSpesfication.objects.get_or_create(
+                product=product,
+                specification=specification,
+                defaults={'value': value}
+            )
+
+            if not created:
+                product_specification.value = value
+                product_specification.save()
+
+            return Response({'success': 'Specification added/updated successfully.'}, status=status.HTTP_200_OK)
+        except Specification.DoesNotExist:
+            return Response({'error': 'Specification does not exist for this subcategory.'}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'error': f'An error occurred: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)    
+
+
+    @action(detail=True, methods=['get'], url_path='list_product_specifications')
+    def list_product_specifications(self, request, pk=None):
+        """List all specifications for a product along with their values."""
+        product = self.get_object()
+
+        # Fetch all ProductSpesfication entries related to the product
+        product_specifications = ProductSpesfication.objects.filter(product=product)
+
+        # Create a dictionary to hold specifications and their associated values
+        specifications_data = {}
+        for ps in product_specifications:
+            spec_name = ps.specification.name
+            if spec_name not in specifications_data:
+                specifications_data[spec_name] = {
+                    'specification_id': ps.specification.id,
+                    'specification_value': ps.specification.value,
+                    'product_specifications': []
+                }
+            specifications_data[spec_name]['product_specifications'].append({
+                'id': ps.id,
+                'value': ps.value
+            })
+
+        # Convert the dictionary to a list of dictionaries
+        data = [
+            {
+                'specification_id': spec_data['specification_id'],
+                'name': spec_name,
+                'value': spec_data['specification_value'],
+                'product_specifications': spec_data['product_specifications']
+            }
+            for spec_name, spec_data in specifications_data.items()
+        ]
+
+        return Response(data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'], url_path='add_product_specification')
+    def add_product_specification(self, request, pk=None):
+        """Add a new specification to a product."""
+        product = self.get_object()
+        specification_id = request.data.get('specification_id')
+        value = request.data.get('value')
+
+        if not specification_id or not value:
+            return Response({'error': 'Specification ID and value are required.'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            specification = ProductSpesfication.objects.create(
-                name=name,
-                value=value,
-                product=product
-            )
-        except ValidationError as e:
-            return Response({'error': f'Validation error: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            return Response({'error': f'Failed to create specification: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            specification = Specification.objects.get(id=specification_id)
+        except Specification.DoesNotExist:
+            return Response({'error': 'Specification not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-        return Response({'success': 'Specification added successfully.'}, status=status.HTTP_201_CREATED)
+        product_specification = ProductSpesfication.objects.create(
+            product=product,
+            specification=specification,
+            value=value
+        )
+
+        return Response({'success': f'Specification {specification.name} added to product {product.name} with value {value}.'}, status=status.HTTP_201_CREATED)
+
+
+
+
 
 class PricingViewset(viewsets.ModelViewSet):
     queryset = Pricing.objects.all().prefetch_related('product')
@@ -814,3 +907,37 @@ class ProductBillViewSet(viewsets.ModelViewSet):
 
 #         return Response({'success': 'currency_value added successfully.'}, status=status.HTTP_201_CREATED)
 
+    # @action(detail=True, methods=['get', 'post'], url_path='specifications')
+    # def specifications(self, request, pk=None):
+    #     product = self.get_object()
+        
+    #     if request.method == 'GET':
+    #         # List all specifications for this product
+    #         product_specifications = ProductSpesfication.objects.filter(product=product)
+    #         serializer = ProductSpesficationSerializer(product_specifications, many=True)
+    #         return Response(serializer.data)
+        
+    #     elif request.method == 'POST':
+    #         # Add a new specification value for this product
+    #         specification_id = request.data.get('specification_id')
+    #         value = request.data.get('value')
+
+    #         try:
+    #             specification = Specification.objects.get(id=specification_id, subcategory=product.subcategory)
+                
+    #             # Create or update the ProductSpecification with the provided value
+    #             product_specification, created = ProductSpesfication.objects.get_or_create(
+    #                 product=product,
+    #                 specification=specification,
+    #                 defaults={'value': value}
+    #             )
+
+    #             if not created:
+    #                 product_specification.value = value
+    #                 product_specification.save()
+
+    #             return Response({'success': 'Specification added/updated successfully.'}, status=status.HTTP_200_OK)
+    #         except Specification.DoesNotExist:
+    #             return Response({'error': 'Specification does not exist for this subcategory.'}, status=status.HTTP_400_BAD_REQUEST)
+    #         except Exception as e:
+    #             return Response({'error': f'An error occurred: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
