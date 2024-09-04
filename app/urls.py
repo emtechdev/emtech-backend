@@ -9,6 +9,7 @@ from django.conf.urls.static import static
 
 
 
+
 router = DefaultRouter()
 router.register('category', views.CategoryViewset, 'category')
 router.register('subcategory', views.SubCategoryViewset, 'subcategory')

@@ -20,7 +20,7 @@ class UserProfile(models.Model):
     
 class Specification(models.Model):
     name = models.CharField(max_length=255)  # Name of the specification, e.g., "Color", "Size"
-    value = models.CharField(max_length=255)  # Value of the specification, e.g., "Red", "Large"
+    value = models.CharField(max_length=255)  # Value of the specification, e.g., "Kg", "km"
 
     def __str__(self):
         return f"{self.name}: {self.value}"

@@ -47,10 +47,10 @@ INSTALLED_APPS = [
 
 ]
 
-REST_FRAMEWORK = {
-    'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
-    # ... other settings
-}
+# REST_FRAMEWORK = {
+#     'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
+#     # ... other settings
+# }
 
 
 CORS_ORIGIN_ALLOW_ALL = True
@@ -59,11 +59,26 @@ CORS_ORIGIN_WHITELIST = [
 'http://localhost:5173',
 'http://127.0.0.1:5173',
 'https://127.0.0.1:5500',
+"http://localhost:4000",  
+
+]
+
+CORS_ALLOW_CREDENTIALS = True
+
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:4000",  # Adjust this to match your frontend URL
 ]
 
 # Allow all headers
 CORS_ALLOW_HEADERS = '*'
 
+# CORS_ALLOW_HEADERS = [
+#     'content-type',
+#     'authorization',
+#     'x-csrftoken',
+#     'x-requested-with',
+# ]
 
 # Optionally, allow all methods (GET, POST, PUT, DELETE, etc.)
 CORS_ALLOW_METHODS = [
@@ -78,12 +93,12 @@ CORS_ALLOW_METHODS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
 
 ]
 

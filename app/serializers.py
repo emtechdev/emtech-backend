@@ -1,6 +1,12 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Category, SubCategory, Product, Pricing, ProductSpesfication, UserProfile, File, Image, PurchaseBill , PurchaseBillItem, SalesBill, SalesBillItem, ProductBill , ProductBillItem, Specification, ProductSpesfication
+from .models import (Category, SubCategory, Product, 
+                     Pricing, ProductSpesfication, UserProfile,
+                       File, Image, PurchaseBill ,
+                         PurchaseBillItem, SalesBill,
+                           SalesBillItem, ProductBill ,
+                             ProductBillItem, Specification,
+                               ProductSpesfication)
 from django.db import transaction
 
 
@@ -15,14 +21,14 @@ class SpecificationSerializer(serializers.ModelSerializer):
         model = Specification
         fields = ['id', 'name', 'value']
 
+
 class ProductSpesficationSerializer(serializers.ModelSerializer):
-    specification = SpecificationSerializer()
+    specification_name = serializers.CharField(source='specification.name', read_only=True)
+    specification_value = serializers.CharField(source='value', read_only=True)
 
     class Meta:
         model = ProductSpesfication
-        fields = ['id', 'product', 'specification', 'value']
-
-
+        fields = ('specification_name', 'specification_value')
 class SubCategorySerializer(serializers.ModelSerializer):
     specifications = SpecificationSerializer(many=True, read_only=True)
 
@@ -51,18 +57,22 @@ class ImageSerializer(serializers.ModelSerializer):
 class ProductSerializer(serializers.ModelSerializer):
     file_url = serializers.SerializerMethodField()
     image = ImageSerializer()
+    specifications = ProductSpesficationSerializer(many=True, read_only=True)
 
     class Meta:
         model = Product
-        fields = ('id', 'subcategory', 'file_url', 'file', 'name',
-                  'image', 'description', 'series',
-                  'manfacturer', 'origin', 'eg_stock',
-                  'ae_stock', 'tr_stock')
+        fields = (
+            'id', 'subcategory', 'file_url', 'file', 'name',
+            'image', 'description', 'series',
+            'manfacturer', 'origin', 'eg_stock',
+            'ae_stock', 'tr_stock', 'specifications'
+        )
 
     def get_file_url(self, obj):
         if obj.file:
             return obj.file.file.url
         return None
+
     
 
 class PricingSerializer(serializers.ModelSerializer):
@@ -162,22 +172,6 @@ class UserSerializer(serializers.ModelSerializer):
         return user
     
 
-class ProductSerializer(serializers.ModelSerializer):
-    file_url = serializers.SerializerMethodField()
-    image = ImageSerializer()
-
-    class Meta:
-        model = Product
-        fields = ('id', 'subcategory', 'file_url', 'file', 'name',
-                  'image', 'description', 'series',
-                  'manfacturer', 'origin', 'eg_stock',
-                  'ae_stock', 'tr_stock')
-
-    def get_file_url(self, obj):
-        if obj.file:
-            return obj.file.file.url
-        return None
-    
 
 class PurchaseBillItemSerializer(serializers.ModelSerializer):
     product = ProductSerializer()

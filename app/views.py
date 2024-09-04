@@ -5,17 +5,25 @@ from rest_framework.response import Response
 from django.http import HttpResponse
 from django.core.exceptions import ValidationError
 from rest_framework import status
+from .filters import ProductFilter
+from django.db.models import Q
+
+
 from .models import (Category, SubCategory, Product, Pricing, ProductSpesfication,
                       UserProfile, File, Image, PurchaseBill, PurchaseBillItem,
                         SalesBill, SalesBillItem, ProductBill, ProductBillItem,
                           Specification, ProductSpesfication)
+
+
 from .serializers import (CategorySerializer, SubCategorySerializer,
                            ProductSerializer, PricingSerializer,
                              ProductSpesficationSerializer , UserSerializer,
                                FileSerializer, ImageSerializer,
                                  PurchaseBillSerializer, PurchaseBillItemSerializer,
                                    SalesBillSerializer, SalesBillItemSerializer, ProductBillItemSerializer,
-                                     ProductBillSerializer, SpecificationSerializer, ProductSpesficationSerializer)
+                                     ProductBillSerializer, SpecificationSerializer,
+                                       ProductSpesficationSerializer)
+
 
 from rest_framework.decorators import api_view
 from rest_framework import generics
@@ -23,6 +31,8 @@ from django.contrib.auth.models import User
 from rest_framework.parsers import MultiPartParser, FormParser
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters
+from .filters import ProductFilter
+from django_filters import rest_framework as filters
 
 class UserListView(generics.ListAPIView):
     queryset = User.objects.all()
@@ -81,9 +91,7 @@ class CategoryViewset(viewsets.ModelViewSet):
 
 
     
-class SubCategoryViewset(viewsets.ModelViewSet):
-    queryset = SubCategory.objects.all()
-    serializer_class = SubCategorySerializer
+
 
 class SubCategoryViewset(viewsets.ModelViewSet):
     queryset = SubCategory.objects.all()
@@ -192,19 +200,63 @@ class SubCategoryViewset(viewsets.ModelViewSet):
             )
         except Exception as e:
             return Response({'error': f'Failed to create Product: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        product_data = ProductSerializer(product).data
 
-        return Response({'success': 'Product added successfully.'}, status=status.HTTP_201_CREATED)
+        return Response(product_data, status=status.HTTP_201_CREATED)
 
 
 
 class ProductViewset(viewsets.ModelViewSet):
-    queryset = Product.objects.all()
+    queryset = Product.objects.all().prefetch_related('specifications__specification')
     serializer_class = ProductSerializer
     paginate_by = 10
-    # filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    # filterset_fields = '__all__'
-    # search_fields = ['name', 'series', 'manufacturer', 'origin']
-    # ordering_fields = '__all__'
+    # filter_backends = (DjangoFilterBackend,)
+    # filterset_class = ProductFilter
+
+
+
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        params = self.request.query_params
+
+        # Filter by static fields with exact matching
+        for key, value in params.items():
+            if key in ['name', 'series', 'manfacturer', 'origin', 'description']:
+                queryset = queryset.filter(**{f'{key}__exact': value})
+            elif key in ['eg_stock', 'ae_stock', 'tr_stock']:
+                # Ensure numeric fields are handled correctly
+                queryset = queryset.filter(**{f'{key}': int(value)})
+            elif key == 'category':
+                queryset = queryset.filter(subcategory__category__name__exact=value)
+            elif key == 'subcategory':
+                queryset = queryset.filter(subcategory__name__exact=value)
+            else:
+                # Handle dynamic filters for specifications using Q objects
+                queryset = queryset.filter(
+                    Q(specifications__specification__name__iexact=key) &
+                    Q(specifications__value__iexact=value)
+                ).distinct()
+
+        return queryset
+    
+    @action(detail=False, methods=['get'], url_name='filter_options', url_path='filter_options')
+    def filter_options(self, request):
+        filter_data = {
+            'name': list(Product.objects.values_list('name', flat=True).distinct()),
+            'series': list(Product.objects.values_list('series', flat=True).distinct()),
+            'manfacturer': list(Product.objects.values_list('manfacturer', flat=True).distinct()),
+            'origin': list(Product.objects.values_list('origin', flat=True).distinct()),
+            'category': list(SubCategory.objects.values_list('category__name', flat=True).distinct()),
+            'subcategory': list(SubCategory.objects.values_list('name', flat=True).distinct()),
+        }
+
+        # Add specification names and values
+        specifications = Specification.objects.values_list('name', flat=True).distinct()
+        for spec in specifications:
+            filter_data[spec] = list(ProductSpesfication.objects.filter(specification__name=spec).values_list('value', flat=True).distinct())
+
+        return Response(filter_data)
 
 
     @action(detail=False, methods=['post'], url_name='update_pricing_with_conversion', url_path='update-pricing-with-conversion')
@@ -489,8 +541,6 @@ class ProductViewset(viewsets.ModelViewSet):
 
 
 
-
-
 class PricingViewset(viewsets.ModelViewSet):
     queryset = Pricing.objects.all().prefetch_related('product')
     serializer_class = PricingSerializer
@@ -611,36 +661,50 @@ class SalesBillViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         data = request.data
         items_data = data.pop('items', [])
-        
+
         # Create the SalesBill
         sales_bill = SalesBill.objects.create(**data)
-        
+
         total_price = 0
 
-        for item_data in items_data:
-            product = Product.objects.get(id=item_data['product_id'])
-            quantity = item_data['quantity']
-            location = item_data['location']
+        try:
+            for item_data in items_data:
+                product = Product.objects.get(id=item_data['product_id'])
+                quantity = item_data['quantity']
+                location = item_data['location']
 
-            # Assuming you have unit_price as part of the item_data (since it's not in Product)
-            unit_price = item_data.get('unit_price', 0)  # or set a default price if not provided
-            
-            # Create the SalesBillItem
-            SalesBillItem.objects.create(
-                sales_bill=sales_bill,
-                product=product,
-                quantity=quantity,
-                location=location
-            )
-            
-            total_price += quantity * unit_price
-        
-        # Update total price of the SalesBill
-        sales_bill.total_price = total_price
-        sales_bill.save()
-        
-        serializer = self.get_serializer(sales_bill)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+                # Assuming you have unit_price as part of the item_data (since it's not in Product)
+                unit_price = item_data.get('unit_price', 0)  # or set a default price if not provided
+
+                # Check if there is enough stock before creating the SalesBillItem
+                if location == 'EG' and product.eg_stock < quantity:
+                    raise ValidationError(f"Not enough stock for product {product.name} in Egypt.")
+                elif location == 'AE' and product.ae_stock < quantity:
+                    raise ValidationError(f"Not enough stock for product {product.name} in UAE.")
+                elif location == 'TR' and product.tr_stock < quantity:
+                    raise ValidationError(f"Not enough stock for product {product.name} in Turkey.")
+
+                # Create the SalesBillItem
+                SalesBillItem.objects.create(
+                    sales_bill=sales_bill,
+                    product=product,
+                    quantity=quantity,
+                    location=location
+                )
+
+                total_price += quantity * unit_price
+
+            # Update total price of the SalesBill
+            sales_bill.total_price = total_price
+            sales_bill.save()
+
+            serializer = self.get_serializer(sales_bill)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        except ValidationError as e:
+            # If there is a validation error (like insufficient stock), delete the created sales bill
+            sales_bill.delete()
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 
