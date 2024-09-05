@@ -97,6 +97,41 @@ class SubCategoryViewset(viewsets.ModelViewSet):
     queryset = SubCategory.objects.all()
     serializer_class = SubCategorySerializer
 
+
+    @action(detail=True, methods=['get'], url_name='filter_products', url_path='filter_products')
+    def filter_products(self, request, pk=None):
+        # Get the subcategory based on the ID from the URL
+        try:
+            subcategory = SubCategory.objects.get(id=pk)
+        except SubCategory.DoesNotExist:
+            return Response({"error": "SubCategory not found"}, status=404)
+
+        # Get the query params and start filtering the products
+        queryset = Product.objects.filter(subcategory=subcategory)
+        params = self.request.query_params
+
+        # Filter by static fields with exact matching
+        for key, value in params.items():
+            if key in ['name', 'series', 'manfacturer', 'origin', 'description']:
+                queryset = queryset.filter(**{f'{key}__exact': value})
+            elif key in ['eg_stock', 'ae_stock', 'tr_stock']:
+                try:
+                    queryset = queryset.filter(**{f'{key}': int(value)})
+                except ValueError:
+                    return Response({"error": f"Invalid value for {key}"}, status=400)
+            else:
+                # Dynamic filters for specifications
+                queryset = queryset.filter(
+                    Q(specifications__specification__name__iexact=key) &
+                    Q(specifications__value__iexact=value)
+                ).distinct()
+
+        # Serialize the filtered queryset
+        serializer = ProductSerializer(queryset, many=True)
+        return Response(serializer.data)
+    
+
+
     @action(detail=True, methods=['get'], url_name='filter_options', url_path='filter_options')
     def filter_options(self, request, pk=None):
         try:
@@ -296,23 +331,23 @@ class ProductViewset(viewsets.ModelViewSet):
 
 
 
-    # @action(detail=False, methods=['get'], url_name='filter_options', url_path='filter_options')
-    # def filter_options(self, request):
-    #     filter_data = {
-    #         'name': list(Product.objects.values_list('name', flat=True).distinct()),
-    #         'series': list(Product.objects.values_list('series', flat=True).distinct()),
-    #         'manfacturer': list(Product.objects.values_list('manfacturer', flat=True).distinct()),
-    #         'origin': list(Product.objects.values_list('origin', flat=True).distinct()),
-    #         'category': list(SubCategory.objects.values_list('category__name', flat=True).distinct()),
-    #         'subcategory': list(SubCategory.objects.values_list('name', flat=True).distinct()),
-    #     }
+    @action(detail=False, methods=['get'], url_name='filter_options', url_path='filter_options')
+    def filter_options(self, request):
+        filter_data = {
+            'name': list(Product.objects.values_list('name', flat=True).distinct()),
+            'series': list(Product.objects.values_list('series', flat=True).distinct()),
+            'manfacturer': list(Product.objects.values_list('manfacturer', flat=True).distinct()),
+            'origin': list(Product.objects.values_list('origin', flat=True).distinct()),
+            'category': list(SubCategory.objects.values_list('category__name', flat=True).distinct()),
+            'subcategory': list(SubCategory.objects.values_list('name', flat=True).distinct()),
+        }
 
-    #     # Add specification names and values
-    #     specifications = Specification.objects.values_list('name', flat=True).distinct()
-    #     for spec in specifications:
-    #         filter_data[spec] = list(ProductSpesfication.objects.filter(specification__name=spec).values_list('value', flat=True).distinct())
+        # Add specification names and values
+        specifications = Specification.objects.values_list('name', flat=True).distinct()
+        for spec in specifications:
+            filter_data[spec] = list(ProductSpesfication.objects.filter(specification__name=spec).values_list('value', flat=True).distinct())
 
-    #     return Response(filter_data)
+        return Response(filter_data)
 
 
     @action(detail=False, methods=['post'], url_name='update_pricing_with_conversion', url_path='update-pricing-with-conversion')
