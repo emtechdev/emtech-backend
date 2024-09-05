@@ -28,7 +28,7 @@ class ProductSpesficationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ProductSpesfication
-        fields = ('specification_name', 'specification_value')
+        fields = ('id','specification_name', 'specification_value')
 class SubCategorySerializer(serializers.ModelSerializer):
     specifications = SpecificationSerializer(many=True, read_only=True)
 

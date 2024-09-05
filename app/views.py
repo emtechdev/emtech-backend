@@ -97,6 +97,59 @@ class SubCategoryViewset(viewsets.ModelViewSet):
     queryset = SubCategory.objects.all()
     serializer_class = SubCategorySerializer
 
+    @action(detail=True, methods=['get'], url_name='filter_options', url_path='filter_options')
+    def filter_options(self, request, pk=None):
+        try:
+            subcategory = SubCategory.objects.get(id=pk)
+            specifications = subcategory.specifications.all()
+
+            # Prepare the filter data
+            filter_data = {
+                'name': list(Product.objects.filter(subcategory=subcategory).values_list('name', flat=True).distinct()),
+                'series': list(Product.objects.filter(subcategory=subcategory).values_list('series', flat=True).distinct()),
+                'manfacturer': list(Product.objects.filter(subcategory=subcategory).values_list('manfacturer', flat=True).distinct()),
+                'origin': list(Product.objects.filter(subcategory=subcategory).values_list('origin', flat=True).distinct()),
+            }
+
+            # Create a dictionary for the specification names and their corresponding values
+            spec_data = {}
+            for spec in specifications:
+                spec_values = ProductSpesfication.objects.filter(
+                    Q(product__subcategory=subcategory) & 
+                    Q(specification=spec)
+                ).values_list('value', flat=True).distinct()
+
+                spec_data[spec.name] = list(spec_values)
+
+            filter_data['specifications'] = spec_data
+
+            return Response(filter_data)
+        
+        except SubCategory.DoesNotExist:
+            return Response({"error": "SubCategory not found"}, status=404)
+
+
+    @action(detail=True, methods=['get'], url_path='specifications')
+    def specifications(self, request, pk=None):
+        # Get the subcategory by its primary key
+        subcategory = self.get_object()
+
+        # Get all specifications for that subcategory
+        specifications = subcategory.specifications.all()
+
+        # Serialize the specifications
+        specification_data = [
+
+            { 
+                "id": spec.id,
+                "name": spec.name,
+                "value": spec.value
+            } for spec in specifications
+        ]
+
+        return Response(specification_data)
+    
+
     @action(detail=True, methods=['post'], url_name='add_specification', url_path='add_specification')
     def add_specification(self, request, pk=None):
         subcategory = self.get_object()  # Get the specific subcategory by ID
@@ -240,23 +293,26 @@ class ProductViewset(viewsets.ModelViewSet):
 
         return queryset
     
-    @action(detail=False, methods=['get'], url_name='filter_options', url_path='filter_options')
-    def filter_options(self, request):
-        filter_data = {
-            'name': list(Product.objects.values_list('name', flat=True).distinct()),
-            'series': list(Product.objects.values_list('series', flat=True).distinct()),
-            'manfacturer': list(Product.objects.values_list('manfacturer', flat=True).distinct()),
-            'origin': list(Product.objects.values_list('origin', flat=True).distinct()),
-            'category': list(SubCategory.objects.values_list('category__name', flat=True).distinct()),
-            'subcategory': list(SubCategory.objects.values_list('name', flat=True).distinct()),
-        }
 
-        # Add specification names and values
-        specifications = Specification.objects.values_list('name', flat=True).distinct()
-        for spec in specifications:
-            filter_data[spec] = list(ProductSpesfication.objects.filter(specification__name=spec).values_list('value', flat=True).distinct())
 
-        return Response(filter_data)
+
+    # @action(detail=False, methods=['get'], url_name='filter_options', url_path='filter_options')
+    # def filter_options(self, request):
+    #     filter_data = {
+    #         'name': list(Product.objects.values_list('name', flat=True).distinct()),
+    #         'series': list(Product.objects.values_list('series', flat=True).distinct()),
+    #         'manfacturer': list(Product.objects.values_list('manfacturer', flat=True).distinct()),
+    #         'origin': list(Product.objects.values_list('origin', flat=True).distinct()),
+    #         'category': list(SubCategory.objects.values_list('category__name', flat=True).distinct()),
+    #         'subcategory': list(SubCategory.objects.values_list('name', flat=True).distinct()),
+    #     }
+
+    #     # Add specification names and values
+    #     specifications = Specification.objects.values_list('name', flat=True).distinct()
+    #     for spec in specifications:
+    #         filter_data[spec] = list(ProductSpesfication.objects.filter(specification__name=spec).values_list('value', flat=True).distinct())
+
+    #     return Response(filter_data)
 
 
     @action(detail=False, methods=['post'], url_name='update_pricing_with_conversion', url_path='update-pricing-with-conversion')
@@ -793,7 +849,9 @@ class ProductBillViewSet(viewsets.ModelViewSet):
 
 
 
-
+class SpesficationViewSet(viewsets.ModelViewSet):
+    queryset = Specification.objects.all()
+    serializer_class = SpecificationSerializer
 
 
 
