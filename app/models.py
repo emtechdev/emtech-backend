@@ -39,7 +39,7 @@ class Category(models.Model):
 class SubCategory(models.Model):
     name = models.CharField(max_length=255, unique=True)
     category = models.ForeignKey(Category, on_delete=models.CASCADE)
-    specifications = models.ManyToManyField(Specification, related_name='subcategories', blank=True, null=True)
+    specifications = models.ManyToManyField(Specification, related_name='subcategories', blank=True)
 
     def __str__(self):
         return self.name
@@ -325,8 +325,28 @@ class Pricing(models.Model):
         ordering = ['-time']
 
 
+class Trader(models.Model):
+    company_name = models.CharField(max_length=255)
+    employee_name = models.CharField(max_length=255)
+    phone = models.CharField(max_length=255)
+    location = models.CharField(max_length = 255)
+    fax = models.CharField(max_length = 255)
+    email = models.CharField(max_length = 255)
+
+    def __str__(self):
+        return self.company_name
+
+
+class Customer(models.Model):
+    name = models.CharField(max_length=255)
+    phone = models.CharField(max_length=255)
+    email = models.CharField(max_length=255)
+
+    def __str__(self):
+        return self.name
 
 class PurchaseBill(models.Model):
+    trader = models.ForeignKey(Trader, related_name='purchase_bills', on_delete=models.CASCADE, null=True, blank=True)
     name = models.CharField(max_length=255)
     products = models.ManyToManyField(Product, through='PurchaseBillItem')
     purchase_date = models.DateTimeField(auto_now_add=True)
@@ -357,6 +377,7 @@ class PurchaseBillItem(models.Model):
 
 
 class SalesBill(models.Model):
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, null=True, blank=True)
     name = models.CharField(max_length=255)
     products = models.ManyToManyField(Product, through='SalesBillItem')
     sales_date = models.DateTimeField(auto_now_add=True)
@@ -403,10 +424,12 @@ class ProductBill(models.Model):
         ('STR', 'STR'),
     ]
 
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, null=True, blank=True)
     currency = models.CharField(max_length=3, choices=CURRENCY_CHOICES)
     discount = models.FloatField(default=0)  # Discount as a percentage
     location = models.CharField(max_length=3, choices=[('EG', 'Egypt'), ('AE', 'UAE'), ('TR', 'Turkey')])
     created_at = models.DateTimeField(auto_now_add=True)
+    total_price = models.DecimalField(max_digits=10, decimal_places=2, default=0.0)  # Add this field
 
     def apply_discount(self, total_amount):
         return total_amount - (total_amount * (self.discount / 100))
@@ -431,7 +454,7 @@ class ProductBill(models.Model):
 
 
     def __str__(self):
-        return f"Bill {self.id} - {self.currency} - {self.location}"
+        return str(self.total_price)
     
 
 class ProductBillItem(models.Model):

@@ -22,6 +22,10 @@ router.register('purchase_bills', views.PurchaseBillViewSet)
 router.register('sales_bills', views.SalesBillViewSet)
 router.register('product_bills', views.ProductBillViewSet)
 router.register('spesification', views.SpesficationViewSet)
+router.register('trader', views.TraderViewset)
+router.register('customer', views.CustomerViewset)
+
+
 
 urlpatterns = [
     path('', include(router.urls)),

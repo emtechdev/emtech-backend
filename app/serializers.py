@@ -6,9 +6,20 @@ from .models import (Category, SubCategory, Product,
                          PurchaseBillItem, SalesBill,
                            SalesBillItem, ProductBill ,
                              ProductBillItem, Specification,
-                               ProductSpesfication)
+                               ProductSpesfication, Trader, Customer)
 from django.db import transaction
 
+
+class TraderSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Trader
+        fields = '__all__'
+
+
+class CustomerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Customer
+        fields = '__all__'
 
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
@@ -182,20 +193,21 @@ class PurchaseBillItemSerializer(serializers.ModelSerializer):
 
 class PurchaseBillSerializer(serializers.ModelSerializer):
     items = PurchaseBillItemSerializer(many=True, read_only=True)
+    trader = TraderSerializer(read_only=True)  # Add trader data
+
+
 
     class Meta:
         model = PurchaseBill
-        fields = ['id', 'name', 'purchase_date', 'total_price', 'items']
-
-
+        fields = ['id', 'name', 'purchase_date', 'total_price', 'items', 'trader'] 
 
 
 class SalesBillItemSerializer(serializers.ModelSerializer):
-    product = ProductSerializer()
+    product = ProductSerializer()  # Use ProductSerializer to include all product details
 
     class Meta:
         model = SalesBillItem
-        fields = ['id', 'product',  'quantity', 'location']
+        fields = ['product', 'quantity', 'location']
 
     def create(self, validated_data):
         product_id = validated_data.pop('product_id')
@@ -206,11 +218,12 @@ class SalesBillItemSerializer(serializers.ModelSerializer):
 
 
 class SalesBillSerializer(serializers.ModelSerializer):
-    items = SalesBillItemSerializer(many=True, read_only=True, source='salesbillitem_set')
+    customer = CustomerSerializer(read_only=True)  # Ensure you have CustomerSerializer defined
+    items = SalesBillItemSerializer(source='salesbillitem_set', many=True, read_only=True)
 
     class Meta:
         model = SalesBill
-        fields = ['id', 'name', 'sales_date', 'total_price', 'items']
+        fields = ['id', 'customer', 'name', 'sales_date', 'total_price', 'items']
 
     def create(self, validated_data):
         items_data = self.context['request'].data.get('items', [])
@@ -256,7 +269,7 @@ class SalesBillSerializer(serializers.ModelSerializer):
 
 
 class ProductBillItemSerializer(serializers.ModelSerializer):
-    product_name = serializers.SerializerMethodField()
+    product_name = serializers.CharField(source='product.name', read_only=True)
 
     class Meta:
         model = ProductBillItem
@@ -266,18 +279,9 @@ class ProductBillItemSerializer(serializers.ModelSerializer):
         return obj.product.name
 
 class ProductBillSerializer(serializers.ModelSerializer):
+    customer = CustomerSerializer(read_only=True)
     items = ProductBillItemSerializer(many=True, read_only=True)
-    total_price = serializers.SerializerMethodField()
-    product_names = serializers.SerializerMethodField()
 
     class Meta:
         model = ProductBill
-        fields = ['id', 'currency', 'discount', 'location', 'created_at', 'items', 'total_price', 'product_names']
-
-    def get_total_price(self, obj):
-        # Call the get_total_price method from ProductBill model
-        return obj.get_total_price()
-
-    def get_product_names(self, obj):
-        # Create a list of product names from the bill items
-        return [item.product.name for item in obj.items.all()]
+        fields = ['id', 'currency', 'discount', 'location', 'created_at', 'customer', 'items', 'total_price']

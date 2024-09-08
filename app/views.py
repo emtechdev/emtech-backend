@@ -7,12 +7,15 @@ from django.core.exceptions import ValidationError
 from rest_framework import status
 from .filters import ProductFilter
 from django.db.models import Q
+from .permissions import IsAdminOrEngineer
+from rest_framework.exceptions import MethodNotAllowed
+from django.db import transaction
 
 
 from .models import (Category, SubCategory, Product, Pricing, ProductSpesfication,
                       UserProfile, File, Image, PurchaseBill, PurchaseBillItem,
                         SalesBill, SalesBillItem, ProductBill, ProductBillItem,
-                          Specification, ProductSpesfication)
+                          Specification, ProductSpesfication, Trader, Customer)
 
 
 from .serializers import (CategorySerializer, SubCategorySerializer,
@@ -22,7 +25,7 @@ from .serializers import (CategorySerializer, SubCategorySerializer,
                                  PurchaseBillSerializer, PurchaseBillItemSerializer,
                                    SalesBillSerializer, SalesBillItemSerializer, ProductBillItemSerializer,
                                      ProductBillSerializer, SpecificationSerializer,
-                                       ProductSpesficationSerializer)
+                                       ProductSpesficationSerializer, TraderSerializer, CustomerSerializer)
 
 
 from rest_framework.decorators import api_view
@@ -53,6 +56,11 @@ def register(request):
 class CategoryViewset(viewsets.ModelViewSet):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
+    permission_classes = [IsAdminOrEngineer]  
+
+    def destroy(self, request, *args, **kwargs):
+        # Override destroy method to prevent deletion
+        raise MethodNotAllowed('DELETE')
 
     @action(detail=True, methods=['get'], url_name='get_subcategory', url_path='get_subcategory')
     def get_subcategory(self, request, pk=None):
@@ -96,6 +104,7 @@ class CategoryViewset(viewsets.ModelViewSet):
 class SubCategoryViewset(viewsets.ModelViewSet):
     queryset = SubCategory.objects.all()
     serializer_class = SubCategorySerializer
+    permission_classes = [IsAdminOrEngineer]  
 
 
     @action(detail=True, methods=['get'], url_name='filter_products', url_path='filter_products')
@@ -298,8 +307,7 @@ class ProductViewset(viewsets.ModelViewSet):
     queryset = Product.objects.all().prefetch_related('specifications__specification')
     serializer_class = ProductSerializer
     paginate_by = 10
-    # filter_backends = (DjangoFilterBackend,)
-    # filterset_class = ProductFilter
+    permission_classes = [IsAdminOrEngineer]  
 
 
 
@@ -636,22 +644,26 @@ class PricingViewset(viewsets.ModelViewSet):
     queryset = Pricing.objects.all().prefetch_related('product')
     serializer_class = PricingSerializer
     paginate_by = 10
+    permission_classes = [IsAdminOrEngineer]  
 
 class ProductSpesficationViewset(viewsets.ModelViewSet):
     queryset = ProductSpesfication.objects.all().prefetch_related('product')
     serializer_class = ProductSpesficationSerializer
-    
+    permission_classes = [IsAdminOrEngineer]  
+
 
 class FileViewset(viewsets.ModelViewSet):
     queryset = File.objects.all()
     serializer_class = FileSerializer
     parser_classes = [MultiPartParser, FormParser] 
+    permission_classes = [IsAdminOrEngineer]  
 
 
 class ImageViewset(viewsets.ModelViewSet):
     queryset = Image.objects.all()
     serializer_class = ImageSerializer
     parser_classes = [MultiPartParser, FormParser] 
+    permission_classes = [IsAdminOrEngineer]  
 
 
 
@@ -722,27 +734,56 @@ class PurchaseBillViewSet(viewsets.ModelViewSet):
     serializer_class = PurchaseBillSerializer
     paginate_by = 10
 
+    
     def create(self, request, *args, **kwargs):
         data = request.data
         items_data = data.pop('items', [])
-        
-        purchase_bill = PurchaseBill.objects.create(**data)
-        
-        for item_data in items_data:
-            product = Product.objects.get(id=item_data['product']['id'])
-            PurchaseBillItem.objects.create(
-                purchase_bill=purchase_bill,
-                product=product,
-                quantity=item_data['quantity'],
-                unit_price=item_data['unit_price'],
-                location=item_data['location']
-            )
-        
-        purchase_bill.total_price = sum(item['quantity'] * item['unit_price'] for item in items_data)
-        purchase_bill.save()
-        
+        trader_id = data.get('trader')
+
+        with transaction.atomic():
+            try:
+                # Ensure the trader exists
+                trader = Trader.objects.get(id=trader_id)
+
+                # Create the purchase bill with a default total_price (to be updated later)
+                purchase_bill = PurchaseBill.objects.create(
+                    name=data.get('name'),
+                    trader=trader,
+                    total_price=0  # Set default value for total_price
+                )
+
+                # Get all the product IDs and fetch them
+                product_ids = [item['product']['id'] for item in items_data]
+                products = Product.objects.filter(id__in=product_ids)
+
+                if len(products) != len(product_ids):
+                    return Response({'error': 'One or more products not found.'}, status=status.HTTP_400_BAD_REQUEST)
+
+                # Create PurchaseBillItem for each item
+                for item_data in items_data:
+                    product = products.get(id=item_data['product']['id'])
+                    PurchaseBillItem.objects.create(
+                        purchase_bill=purchase_bill,
+                        product=product,
+                        quantity=item_data['quantity'],
+                        unit_price=item_data['unit_price'],
+                        location=item_data['location']
+                    )
+
+                # Calculate and update the total price
+                purchase_bill.total_price = sum(item['quantity'] * item['unit_price'] for item in items_data)
+                purchase_bill.save()
+
+            except Trader.DoesNotExist:
+                return Response({'error': 'Trader not found.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            except Exception as e:
+                return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Return the created purchase bill data
         serializer = self.get_serializer(purchase_bill)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+    
 
 class SalesBillViewSet(viewsets.ModelViewSet):
     queryset = SalesBill.objects.all().prefetch_related('products')
@@ -752,50 +793,74 @@ class SalesBillViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         data = request.data
         items_data = data.pop('items', [])
+        customer_id = data.get('customer_id')  # Get customer ID from the request data
 
-        # Create the SalesBill
-        sales_bill = SalesBill.objects.create(**data)
+        # Validate customer
+        if customer_id:
+            try:
+                customer = Customer.objects.get(id=customer_id)
+            except Customer.DoesNotExist:
+                return Response({'error': 'Customer not found.'}, status=status.HTTP_404_NOT_FOUND)
+        else:
+            customer = None
 
-        total_price = 0
+        # Initialize the SalesBill instance
+        sales_bill = SalesBill(customer=customer, **data)
+        sales_bill.total_price = 0  # Initialize total_price to 0
 
+        errors = []
+
+        # Save the SalesBill instance first
         try:
-            for item_data in items_data:
-                product = Product.objects.get(id=item_data['product_id'])
-                quantity = item_data['quantity']
-                location = item_data['location']
-
-                # Assuming you have unit_price as part of the item_data (since it's not in Product)
-                unit_price = item_data.get('unit_price', 0)  # or set a default price if not provided
-
-                # Check if there is enough stock before creating the SalesBillItem
-                if location == 'EG' and product.eg_stock < quantity:
-                    raise ValidationError(f"Not enough stock for product {product.name} in Egypt.")
-                elif location == 'AE' and product.ae_stock < quantity:
-                    raise ValidationError(f"Not enough stock for product {product.name} in UAE.")
-                elif location == 'TR' and product.tr_stock < quantity:
-                    raise ValidationError(f"Not enough stock for product {product.name} in Turkey.")
-
-                # Create the SalesBillItem
-                SalesBillItem.objects.create(
-                    sales_bill=sales_bill,
-                    product=product,
-                    quantity=quantity,
-                    location=location
-                )
-
-                total_price += quantity * unit_price
-
-            # Update total price of the SalesBill
-            sales_bill.total_price = total_price
             sales_bill.save()
+        except Exception as e:
+            return Response({'error': f'Failed to create SalesBill: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-            serializer = self.get_serializer(sales_bill)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        for item_data in items_data:
+            product_id = item_data.get('product_id')
+            quantity = item_data.get('quantity')
+            location = item_data.get('location')
+            unit_price = item_data.get('unit_price', 0)  # Default unit price if not provided
 
-        except ValidationError as e:
-            # If there is a validation error (like insufficient stock), delete the created sales bill
+            try:
+                product = Product.objects.get(id=product_id)
+
+                # Check stock availability
+                if location == 'EG' and product.eg_stock < quantity:
+                    errors.append(f"Not enough stock for product {product.name} in Egypt.")
+                elif location == 'AE' and product.ae_stock < quantity:
+                    errors.append(f"Not enough stock for product {product.name} in UAE.")
+                elif location == 'TR' and product.tr_stock < quantity:
+                    errors.append(f"Not enough stock for product {product.name} in Turkey.")
+                else:
+                    # Create the SalesBillItem
+                    SalesBillItem.objects.create(
+                        sales_bill=sales_bill,
+                        product=product,
+                        quantity=quantity,
+                        location=location
+                    )
+
+                    # Update total price
+                    sales_bill.total_price += quantity * unit_price
+
+            except Product.DoesNotExist:
+                errors.append(f"Product not found for ID {product_id}")
+            except ValueError as e:
+                errors.append(str(e))
+
+        # Handle errors if any
+        if errors:
+            # If errors occur, delete the SalesBill to avoid orphan records
             sales_bill.delete()
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'errors': errors}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Save the SalesBill instance with the total_price
+        sales_bill.save()
+
+        serializer = self.get_serializer(sales_bill)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
 
 
 
@@ -803,6 +868,7 @@ class ProductBillViewSet(viewsets.ModelViewSet):
     queryset = ProductBill.objects.all()
     serializer_class = ProductBillSerializer
     paginate_by = 10
+
     @action(detail=False, methods=['post'])
     def create_with_products(self, request):
         data = request.data
@@ -810,13 +876,20 @@ class ProductBillViewSet(viewsets.ModelViewSet):
         discount = data.get('discount', 0)
         location = data.get('location')
         products = data.get('products', [])
+        customer_id = data.get('customer_id')  # Get customer from request
 
         # Validate discount
         if discount > 30:
             return Response({'error': 'Discount cannot exceed 30%'}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Validate customer
+        try:
+            customer = Customer.objects.get(id=customer_id)
+        except Customer.DoesNotExist:
+            return Response({'error': 'Customer not found.'}, status=status.HTTP_404_NOT_FOUND)
+
         # Create ProductBill instance
-        product_bill = ProductBill(currency=currency, discount=discount, location=location)
+        product_bill = ProductBill(currency=currency, discount=discount, location=location, customer=customer)
         product_bill.save()
 
         total_amount = 0
@@ -834,22 +907,7 @@ class ProductBillViewSet(viewsets.ModelViewSet):
                 continue
 
             # Calculate the unit price based on currency
-            if currency == 'USD':
-                unit_price = pricing.eg_final_price_usd
-            elif currency == 'EUR':
-                unit_price = pricing.eg_final_price_eur
-            elif currency == 'EGP':
-                unit_price = pricing.eg_final_price_usd_egp
-            elif currency == 'TR':
-                unit_price = pricing.eg_final_price_usd_tr
-            elif currency == 'RS':
-                unit_price = pricing.eg_final_price_usd_rs
-            elif currency == 'AE':
-                unit_price = pricing.eg_final_price_usd_ae
-            elif currency == 'STR':
-                unit_price = pricing.eg_final_price_usd_strlini
-            else:
-                return Response({'error': 'Invalid currency'}, status=status.HTTP_400_BAD_REQUEST)
+            unit_price = self.get_unit_price_based_on_currency(pricing, currency)
 
             # Calculate total amount
             total_amount += unit_price * quantity
@@ -878,10 +936,29 @@ class ProductBillViewSet(viewsets.ModelViewSet):
 
         # Apply discount
         total_amount = product_bill.apply_discount(total_amount)
+        product_bill.total_price = total_amount
+        product_bill.save()  # Save total_price after applying discount
 
-        return Response({'bill_id': product_bill.id, 'total_amount': total_amount}, status=status.HTTP_201_CREATED)
+        serializer = self.get_serializer(product_bill)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-
+    def get_unit_price_based_on_currency(self, pricing, currency):
+        if currency == 'USD':
+            return pricing.eg_final_price_usd
+        elif currency == 'EUR':
+            return pricing.eg_final_price_eur
+        elif currency == 'EGP':
+            return pricing.eg_final_price_usd_egp
+        elif currency == 'TR':
+            return pricing.eg_final_price_usd_tr
+        elif currency == 'RS':
+            return pricing.eg_final_price_usd_rs
+        elif currency == 'AE':
+            return pricing.eg_final_price_usd_ae
+        elif currency == 'STR':
+            return pricing.eg_final_price_usd_strlini
+        else:
+            raise ValueError('Invalid currency')
 
 
 class SpesficationViewSet(viewsets.ModelViewSet):
@@ -889,10 +966,15 @@ class SpesficationViewSet(viewsets.ModelViewSet):
     serializer_class = SpecificationSerializer
 
 
+class TraderViewset(viewsets.ModelViewSet):
+    queryset = Trader.objects.all()
+    serializer_class = TraderSerializer
 
 
 
-
+class CustomerViewset(viewsets.ModelViewSet):
+    queryset = Customer.objects.all()
+    serializer_class = CustomerSerializer
 
 
 
