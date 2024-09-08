@@ -879,8 +879,8 @@ class ProductBillViewSet(viewsets.ModelViewSet):
         customer_id = data.get('customer_id')  # Get customer from request
 
         # Validate discount
-        if discount > 30:
-            return Response({'error': 'Discount cannot exceed 30%'}, status=status.HTTP_400_BAD_REQUEST)
+        # if discount > 30:
+        #     return Response({'error': 'Discount cannot exceed 30%'}, status=status.HTTP_400_BAD_REQUEST)
 
         # Validate customer
         try:
