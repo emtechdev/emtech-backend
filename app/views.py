@@ -358,64 +358,7 @@ class ProductViewset(viewsets.ModelViewSet):
         return Response(filter_data)
 
 
-    @action(detail=False, methods=['post'], url_name='update_pricing_with_conversion', url_path='update-pricing-with-conversion')
-    def update_pricing_with_conversion(self, request):
-        # Get the conversion rates from the request
-        conversion_rates = request.data
-
-        # Validate required fields
-        required_fields = [
-            'usd_to_egp', 'usd_to_eur', 'usd_to_tr', 'usd_to_rs', 'usd_to_ae', 'usd_to_strlini',
-            'eur_to_egp', 'eur_to_usd', 'eur_to_tr', 'eur_to_rs', 'eur_to_ae', 'eur_to_strlini'
-        ]
-        missing_fields = [field for field in required_fields if field not in conversion_rates]
-        if missing_fields:
-            return Response({'error': f'Missing fields: {", ".join(missing_fields)}'}, status=status.HTTP_400_BAD_REQUEST)
-        
-        # Check for valid values
-        invalid_fields = [field for field in required_fields if not isinstance(conversion_rates.get(field), (int, float))]
-        if invalid_fields:
-            return Response({'error': f'Invalid values for fields: {", ".join(invalid_fields)}'}, status=status.HTTP_400_BAD_REQUEST)
-        
-        # Retrieve all products
-        products = Product.objects.all()
-
-        for product in products:
-            # Create new pricing instance with updated conversion rates
-            try:
-                Pricing.objects.create(
-                    product=product,
-                    curreny_entry='USD',  # Set default currency entry for new pricing
-                    eg_buy_price=product.eg_buy_price,  # Keep previous pricing fields
-                    eg_cost=product.eg_cost,
-                    eg_profit=product.eg_profit,
-                    ae_buy_price=product.ae_buy_price,
-                    ae_cost=product.ae_cost,
-                    ae_profit=product.ae_profit,
-                    tr_buy_price=product.tr_buy_price,
-                    tr_cost=product.tr_cost,
-                    tr_profit=product.tr_profit,
-                    usd_to_egp=conversion_rates['usd_to_egp'],
-                    usd_to_eur=conversion_rates['usd_to_eur'],
-                    usd_to_tr=conversion_rates['usd_to_tr'],
-                    usd_to_rs=conversion_rates['usd_to_rs'],
-                    usd_to_ae=conversion_rates['usd_to_ae'],
-                    usd_to_strlini=conversion_rates['usd_to_strlini'],
-                    eur_to_egp=conversion_rates['eur_to_egp'],
-                    eur_to_usd=conversion_rates['eur_to_usd'],
-                    eur_to_tr=conversion_rates['eur_to_tr'],
-                    eur_to_rs=conversion_rates['eur_to_rs'],
-                    eur_to_ae=conversion_rates['eur_to_ae'],
-                    eur_to_strlini=conversion_rates['eur_to_strlini']
-                )
-            except Exception as e:
-                return Response({'error': f'Failed to create pricing for product {product.id}: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-        return Response({'success': 'New pricing added for all products successfully.'}, status=status.HTTP_201_CREATED)
     
-
-
-
     @action(detail=True, methods=['post'])
     def add_selected_file(self, request, pk=None, url_name='add_selected_file', url_path='add_selected_file'):
         product = self.get_object()
@@ -532,8 +475,11 @@ class ProductViewset(viewsets.ModelViewSet):
         except Product.DoesNotExist:
             return Response({'error': 'Product not found.'}, status=status.HTTP_404_NOT_FOUND)
 
+        location = request.query_params.get('location', 'EG')  # Get location from query parameters
+        currency = request.query_params.get('currency', 'USD')  # Get currency from query parameters
+
         pricing = Pricing.objects.filter(product=product).prefetch_related('product')
-        serializer = PricingSerializer(pricing, many=True)
+        serializer = PricingSerializer(pricing, many=True, context={'location': location, 'currency': currency})
         return Response(serializer.data)
 
     @action(detail=True, methods=['get'], url_path='specifications')
@@ -672,29 +618,35 @@ class ImageViewset(viewsets.ModelViewSet):
 def update_pricing_with_conversion(request):
     conversion_rates = request.data
 
+    # Validate only the fields you need for conversion, based on your Pricing model
     required_fields = [
-        'usd_to_egp', 'usd_to_eur', 'usd_to_tr', 'usd_to_rs', 'usd_to_ae', 'usd_to_strlini',
-        'eur_to_egp', 'eur_to_usd', 'eur_to_tr', 'eur_to_rs', 'eur_to_ae', 'eur_to_strlini'
+        'usd_to_egp', 'usd_to_eur', 'usd_to_tr', 'usd_to_rs', 'usd_to_ae', 'usd_to_strlini'
     ]
+    
+    # Check for missing fields
     missing_fields = [field for field in required_fields if field not in conversion_rates]
     if missing_fields:
         return Response({'error': f'Missing fields: {", ".join(missing_fields)}'}, status=status.HTTP_400_BAD_REQUEST)
 
+    # Check for invalid values (non-numeric)
     invalid_fields = [field for field in required_fields if not isinstance(conversion_rates.get(field), (int, float))]
     if invalid_fields:
         return Response({'error': f'Invalid values for fields: {", ".join(invalid_fields)}'}, status=status.HTTP_400_BAD_REQUEST)
 
+    # Retrieve all products
     products = Product.objects.all()
     created_count = 0
 
     for product in products:
+        # Get the most recent existing pricing for the product
         existing_pricing = Pricing.objects.filter(product=product).last()
 
         if existing_pricing:
             try:
+                # Create a new pricing instance for the product with updated conversion rates
                 Pricing.objects.create(
                     product=product,
-                    eg_buy_price=existing_pricing.eg_buy_price,
+                    eg_buy_price=existing_pricing.eg_buy_price,  # Retain previous pricing values
                     eg_cost=existing_pricing.eg_cost,
                     eg_profit=existing_pricing.eg_profit,
                     ae_buy_price=existing_pricing.ae_buy_price,
@@ -703,28 +655,23 @@ def update_pricing_with_conversion(request):
                     tr_buy_price=existing_pricing.tr_buy_price,
                     tr_cost=existing_pricing.tr_cost,
                     tr_profit=existing_pricing.tr_profit,
+                    # Conversion rates provided in the request
                     usd_to_egp=conversion_rates.get('usd_to_egp'),
                     usd_to_eur=conversion_rates.get('usd_to_eur'),
                     usd_to_tr=conversion_rates.get('usd_to_tr'),
                     usd_to_rs=conversion_rates.get('usd_to_rs'),
                     usd_to_ae=conversion_rates.get('usd_to_ae'),
-                    usd_to_strlini=conversion_rates.get('usd_to_strlini'),
-                    eur_to_egp=conversion_rates.get('eur_to_egp'),
-                    eur_to_usd=conversion_rates.get('eur_to_usd'),
-                    eur_to_tr=conversion_rates.get('eur_to_tr'),
-                    eur_to_rs=conversion_rates.get('eur_to_rs'),
-                    eur_to_ae=conversion_rates.get('eur_to_ae'),
-                    eur_to_strlini=conversion_rates.get('eur_to_strlini')
+                    usd_to_strlini=conversion_rates.get('usd_to_strlini')
                 )
                 created_count += 1
             except Exception as e:
                 return Response({'error': f'Failed to create pricing for product {product.name}: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+    # Return response based on how many products were updated
     if created_count == 0:
         return Response({'error': 'No existing pricing data found for any products.'}, status=status.HTTP_404_NOT_FOUND)
 
     return Response({'success': f'New pricing added for {created_count} products successfully.'}, status=status.HTTP_201_CREATED)
-
 
 
 
@@ -793,7 +740,7 @@ class SalesBillViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         data = request.data
         items_data = data.pop('items', [])
-        customer_id = data.get('customer_id')  # Get customer ID from the request data
+        customer_id = data.get('customer_id')
 
         # Validate customer
         if customer_id:
@@ -806,11 +753,11 @@ class SalesBillViewSet(viewsets.ModelViewSet):
 
         # Initialize the SalesBill instance
         sales_bill = SalesBill(customer=customer, **data)
-        sales_bill.total_price = 0  # Initialize total_price to 0
+        sales_bill.total_price = 0
 
         errors = []
 
-        # Save the SalesBill instance first
+        # Save the SalesBill instance
         try:
             sales_bill.save()
         except Exception as e:
@@ -820,29 +767,22 @@ class SalesBillViewSet(viewsets.ModelViewSet):
             product_id = item_data.get('product_id')
             quantity = item_data.get('quantity')
             location = item_data.get('location')
-            unit_price = item_data.get('unit_price', 0)  # Default unit price if not provided
+            unit_price = item_data.get('unit_price', 0)
 
             try:
                 product = Product.objects.get(id=product_id)
 
-                # Check stock availability
-                if location == 'EG' and product.eg_stock < quantity:
-                    errors.append(f"Not enough stock for product {product.name} in Egypt.")
-                elif location == 'AE' and product.ae_stock < quantity:
-                    errors.append(f"Not enough stock for product {product.name} in UAE.")
-                elif location == 'TR' and product.tr_stock < quantity:
-                    errors.append(f"Not enough stock for product {product.name} in Turkey.")
-                else:
-                    # Create the SalesBillItem
-                    SalesBillItem.objects.create(
-                        sales_bill=sales_bill,
-                        product=product,
-                        quantity=quantity,
-                        location=location
-                    )
+                # Create the SalesBillItem without adjusting stock
+                SalesBillItem.objects.create(
+                    sales_bill=sales_bill,
+                    product=product,
+                    quantity=quantity,
+                    unit_price=unit_price,
+                    location=location
+                )
 
-                    # Update total price
-                    sales_bill.total_price += quantity * unit_price
+                # Update total price
+                sales_bill.total_price += quantity * unit_price
 
             except Product.DoesNotExist:
                 errors.append(f"Product not found for ID {product_id}")
@@ -851,16 +791,49 @@ class SalesBillViewSet(viewsets.ModelViewSet):
 
         # Handle errors if any
         if errors:
-            # If errors occur, delete the SalesBill to avoid orphan records
             sales_bill.delete()
             return Response({'errors': errors}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Save the SalesBill instance with the total_price
+        # Save the updated total_price
         sales_bill.save()
 
         serializer = self.get_serializer(sales_bill)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
+    @action(detail=False, methods=['post'])
+    def adjust_stock(self, request):
+        """
+        Adjust stock based on the items in the SalesBill.
+        """
+        sales_bill_id = request.data.get('sales_bill_id')
+        location = request.data.get('location')  # Optional, in case stock is location-specific
+
+        # Validate input
+        if not sales_bill_id:
+            return Response({'error': 'SalesBill ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Get the SalesBill
+        try:
+            sales_bill = SalesBill.objects.get(id=sales_bill_id)
+        except SalesBill.DoesNotExist:
+            return Response({'error': 'SalesBill not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        errors = []
+
+        # Use the correct related name to access SalesBillItems
+        for item in sales_bill.items.all():  # If 'items' is not the related name, use 'salesbillitem_set'
+            try:
+                product = Product.objects.get(id=item.product.id)
+                product.adjust_stock(item.quantity, location or item.location)  # Adjust stock based on location
+            except Product.DoesNotExist:
+                errors.append(f'Product not found for ID {item.product.id}')
+            except ValueError as e:
+                errors.append(str(e))
+
+        if errors:
+            return Response({'errors': errors}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({'message': f'Stock adjusted successfully for SalesBill {sales_bill_id}'}, status=status.HTTP_200_OK)
 
 
 
@@ -876,11 +849,7 @@ class ProductBillViewSet(viewsets.ModelViewSet):
         discount = data.get('discount', 0)
         location = data.get('location')
         products = data.get('products', [])
-        customer_id = data.get('customer_id')  # Get customer from request
-
-        # Validate discount
-        # if discount > 30:
-        #     return Response({'error': 'Discount cannot exceed 30%'}, status=status.HTTP_400_BAD_REQUEST)
+        customer_id = data.get('customer_id')
 
         # Validate customer
         try:
@@ -888,41 +857,52 @@ class ProductBillViewSet(viewsets.ModelViewSet):
         except Customer.DoesNotExist:
             return Response({'error': 'Customer not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-        # Create ProductBill instance
-        product_bill = ProductBill(currency=currency, discount=discount, location=location, customer=customer)
-        product_bill.save()
+        # Start a transaction to ensure atomicity
+        with transaction.atomic():
+            # Create ProductBill instance
+            product_bill = ProductBill(currency=currency, discount=discount, location=location, customer=customer)
+            product_bill.save()  # Save to get primary key
+            print(f"ProductBill saved with ID: {product_bill.id}")
 
-        total_amount = 0
-        errors = []
+            total_amount = 0
+            errors = []
 
-        for item in products:
-            product_id = item['product_id']
-            quantity = item['quantity']
+            # Process products
+            for item in products:
+                product_id = item.get('product_id')
+                quantity = item.get('quantity')
 
-            # Get the latest pricing for the product
-            try:
-                pricing = Pricing.objects.filter(product_id=product_id).latest('time')
-            except Pricing.DoesNotExist:
-                errors.append(f'Pricing not found for product {product_id}')
-                continue
+                # Get the product and check stock
+                try:
+                    product = Product.objects.get(id=product_id)
+                except Product.DoesNotExist:
+                    errors.append(f'Product not found for ID {product_id}')
+                    continue
 
-            # Calculate the unit price based on currency
-            unit_price = self.get_unit_price_based_on_currency(pricing, currency)
+                # Check stock availability
+                available_stock = self.get_available_stock(product, location)
+                if quantity > available_stock:
+                    errors.append(f'Insufficient stock for product {product_id}. Available: {available_stock}, Requested: {quantity}')
+                    continue
 
-            # Calculate total amount
-            total_amount += unit_price * quantity
+                # Get the latest pricing for the product
+                try:
+                    pricing = Pricing.objects.filter(product_id=product_id).latest('time')
+                except Pricing.DoesNotExist:
+                    errors.append(f'Pricing not found for product {product_id}')
+                    continue
 
-            # Adjust product stock
-            try:
-                product = Product.objects.get(id=product_id)
-                product.adjust_stock(quantity, location)
-            except Product.DoesNotExist:
-                errors.append(f'Product not found for ID {product_id}')
-            except ValueError as e:
-                errors.append(str(e))
+                # Calculate the unit price based on currency
+                try:
+                    unit_price = pricing.get_final_price(location, currency)
+                except ValueError:
+                    errors.append(f'Invalid location or currency for product {product_id}')
+                    continue
 
-            # Create ProductBillItem instance if no errors
-            if not errors:
+                # Calculate total amount
+                total_amount += unit_price * quantity
+
+                # Create ProductBillItem instance
                 ProductBillItem.objects.create(
                     product_bill=product_bill,
                     product_id=product_id,
@@ -931,34 +911,65 @@ class ProductBillViewSet(viewsets.ModelViewSet):
                     location=location
                 )
 
+            if errors:
+                # If there were errors, roll back the creation of ProductBill
+                product_bill.delete()
+                return Response({'errors': errors}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Apply discount and save total price
+            total_amount = product_bill.apply_discount(total_amount)
+            product_bill.total_price = total_amount
+            product_bill.save()  # Save total_price after applying discount
+
+            serializer = self.get_serializer(product_bill)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def get_available_stock(self, product, location):
+        """ Return available stock based on location. """
+        if location == 'EG':
+            return product.eg_stock
+        elif location == 'AE':
+            return product.ae_stock
+        elif location == 'TR':
+            return product.tr_stock
+        else:
+            raise ValueError('Invalid location')
+        
+    @action(detail=False, methods=['post'])
+    def adjust_stock(self, request):
+        """
+        Adjust stock based on a given ProductBill ID.
+        """
+        product_bill_id = request.data.get('product_bill_id')
+        location = request.data.get('location')  # Optional, if stock is location-specific
+
+        # Validate input
+        if not product_bill_id:
+            return Response({'error': 'ProductBill ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Get the ProductBill
+        try:
+            product_bill = ProductBill.objects.get(id=product_bill_id)
+        except ProductBill.DoesNotExist:
+            return Response({'error': 'ProductBill not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        errors = []
+
+        # Adjust stock for each ProductBillItem
+        for item in product_bill.items.all():  # Assuming there's a related_name `items` on ProductBillItem
+            try:
+                product = Product.objects.get(id=item.product.id)
+                product.adjust_stock(item.quantity, location or item.location)  # Adjust stock based on quantity and location
+            except Product.DoesNotExist:
+                errors.append(f'Product not found for ID {item.product.id}')
+            except ValueError as e:
+                errors.append(str(e))
+
         if errors:
             return Response({'errors': errors}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Apply discount
-        total_amount = product_bill.apply_discount(total_amount)
-        product_bill.total_price = total_amount
-        product_bill.save()  # Save total_price after applying discount
+        return Response({'message': f'Stock adjusted successfully for ProductBill {product_bill_id}'}, status=status.HTTP_200_OK)
 
-        serializer = self.get_serializer(product_bill)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-    def get_unit_price_based_on_currency(self, pricing, currency):
-        if currency == 'USD':
-            return pricing.eg_final_price_usd
-        elif currency == 'EUR':
-            return pricing.eg_final_price_eur
-        elif currency == 'EGP':
-            return pricing.eg_final_price_usd_egp
-        elif currency == 'TR':
-            return pricing.eg_final_price_usd_tr
-        elif currency == 'RS':
-            return pricing.eg_final_price_usd_rs
-        elif currency == 'AE':
-            return pricing.eg_final_price_usd_ae
-        elif currency == 'STR':
-            return pricing.eg_final_price_usd_strlini
-        else:
-            raise ValueError('Invalid currency')
 
 
 class SpesficationViewSet(viewsets.ModelViewSet):

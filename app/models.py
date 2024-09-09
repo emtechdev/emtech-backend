@@ -113,9 +113,8 @@ class ProductSpesfication(models.Model):
 
     
 class Pricing(models.Model):
-
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
-    time = models.DateTimeField(auto_now_add=True, null= True, blank=True)
+    time = models.DateTimeField(auto_now_add=True, null=True, blank=True)
     eg_buy_price = models.FloatField()
     eg_cost = models.FloatField()
     eg_profit = models.FloatField()
@@ -126,200 +125,76 @@ class Pricing(models.Model):
     tr_cost = models.FloatField()
     tr_profit = models.FloatField()
 
-    usd_to_egp = models.FloatField( default=1)
+    usd_to_egp = models.FloatField(default=1)
     usd_to_eur = models.FloatField(default=1)
     usd_to_tr = models.FloatField(default=1)
     usd_to_rs = models.FloatField(default=1)
     usd_to_ae = models.FloatField(default=1)
     usd_to_strlini = models.FloatField(default=1)
 
-    eur_to_egp = models.FloatField(default=1 )
-    eur_to_usd = models.FloatField(default=1)
-    eur_to_tr = models.FloatField(default=1)
-    eur_to_rs = models.FloatField(default=1)
-    eur_to_ae = models.FloatField(default=1)
-    eur_to_strlini = models.FloatField(default=1)
 
 
-    @property
-    def eg_final_price_usd(self):
-        return self.eg_buy_price * self.eg_profit * self.eg_cost
+    def get_final_price(self, location, currency):
+        if location == 'EG':
+            base_price = self.eg_buy_price * self.eg_profit * self.eg_cost
+        elif location == 'AE':
+            base_price = self.ae_buy_price * self.ae_profit * self.ae_cost
+        elif location == 'TR':
+            base_price = self.tr_buy_price * self.tr_profit * self.tr_cost
+        else:
+            raise ValueError('Invalid location')
 
-    @property
-    def eg_final_price_usd(self):
-        return self.eg_buy_price * self.eg_profit * self.eg_cost    
-
-    @property
-    def eg_final_price_usd_egp(self):
-        return self.eg_final_price_usd * self.usd_to_egp
-    
-    @property
-    def eg_final_price_usd_eur(self):
-        return self.eg_final_price_usd * self.usd_to_eur
-    
-    @property
-    def eg_final_price_usd_tr(self):
-        return self.eg_final_price_usd * self.usd_to_tr
-    
-    @property
-    def eg_final_price_usd_rs(self):
-        return self.eg_final_price_usd * self.usd_to_rs
-    
-    @property
-    def eg_final_price_usd_ae(self):
-        return self.eg_final_price_usd * self.usd_to_ae
-    
-    @property 
-    def eg_final_price_usd_strlini(self):
-        return self.eg_final_price_usd * self.usd_to_strlini
-
-######################################################################################
-
-    @property
-    def eg_final_price_eur(self):
-        return self.eg_buy_price * self.eg_profit * self.eg_cost    
-
-
-    @property
-    def eg_final_price_eur_usd(self):
-        return self.eg_final_price_eur * self.eur_to_usd
-    
-    @property
-    def eg_final_price_eur_egp(self):
-        return self.eg_final_price_eur * self.eur_to_egp
-    
-    @property
-    def eg_final_price_eur_tr(self):
-        return self.eg_final_price_eur * self.eur_to_tr
-    
-    @property
-    def eg_final_price_eur_rs(self):
-        return self.eg_final_price_eur * self.eur_to_rs
-    
-    @property
-    def eg_final_price_eur_ae(self):
-        return self.eg_final_price_eur * self.eur_to_ae
-    
-    @property 
-    def eg_final_price_eur_strlini(self):
-        return self.eg_final_price_eur * self.eur_to_strlini
-
-
-###################################################################################
-
-    @property
-    def ae_final_price_usd(self):
-        return self.ae_buy_price * self.ae_profit * self.ae_cost
-    
-    @property
-    def ae_final_price_usd_egp(self):
-        return self.ae_final_price_usd * self.usd_to_egp
-    
-    @property
-    def ae_final_price_usd_eur(self):
-        return self.ae_final_price_usd * self.usd_to_eur
-    
-    @property
-    def ae_final_price_usd_tr(self):
-        return self.ae_final_price_usd * self.usd_to_tr
-    
-    @property
-    def ae_final_price_usd_rs(self):
-        return self.ae_final_price_usd * self.usd_to_rs
-    
-    @property
-    def ae_final_price_usd_ae(self):
-        return self.ae_final_price_usd * self.usd_to_ae
-    
-    @property 
-    def ae_final_price_usd_strlini(self):
-        return self.ae_final_price_usd * self.usd_to_strlini
-#################################################################################################
-
-    @property
-    def ae_final_price_eur(self):
-        return self.ae_buy_price * self.ae_profit * self.ae_cost
-
-    @property
-    def ae_final_price_eur_usd(self):
-        return self.ae_final_price_eur * self.eur_to_usd
-    
-    @property
-    def ae_final_price_eur_egp(self):
-        return self.ae_final_price_eur * self.eur_to_egp
-    
-    @property
-    def ae_final_price_eur_tr(self):
-        return self.ae_final_price_eur * self.eur_to_tr
-    
-    @property
-    def ae_final_price_eur_rs(self):
-        return self.ae_final_price_eur * self.eur_to_rs
-    
-    @property
-    def ae_final_price_eur_ae(self):
-        return self.ae_final_price_eur * self.eur_to_ae
-    
-    @property 
-    def ae_final_price_eur_strlini(self):
-        return self.ae_final_price_eur * self.eur_to_strlini
-#################################################################################################
-    @property
-    def tr_final_price_usd(self):
-        return self.tr_buy_price * self.tr_profit * self.tr_cost
-    
-    @property
-    def tr_final_price_usd_egp(self):
-        return self.tr_final_price_usd * self.usd_to_egp
-    
-    @property
-    def tr_final_price_usd_eur(self):
-        return self.tr_final_price_usd * self.usd_to_eur
-    
-    @property
-    def tr_final_price_usd_tr(self):
-        return self.tr_final_price_usd * self.usd_to_tr
-    
-    @property
-    def tr_final_price_usd_rs(self):
-        return self.tr_final_price_usd * self.usd_to_rs
-    
-    @property
-    def tr_final_price_usd_ae(self):
-        return self.tr_final_price_usd * self.usd_to_ae
-    
-    @property 
-    def tr_final_price_usd_strlini(self):
-        return self.tr_final_price_usd * self.usd_to_strlini
-#################################################################################################
-
-    @property
-    def tr_final_price_eur(self):
-        return self.tr_buy_price * self.tr_profit * self.tr_cost
-
-    @property
-    def tr_final_price_eur_usd(self):
-        return self.tr_final_price_eur * self.eur_to_usd
-    
-    @property
-    def tr_final_price_eur_egp(self):
-        return self.tr_final_price_eur * self.eur_to_egp
-    
-    @property
-    def tr_final_price_eur_tr(self):
-        return self.tr_final_price_eur * self.eur_to_tr
-    
-    @property
-    def tr_final_price_eur_rs(self):
-        return self.tr_final_price_eur * self.eur_to_rs
-    
-    @property
-    def tr_final_price_eur_ae(self):
-        return self.tr_final_price_eur * self.eur_to_ae
-    
-    @property 
-    def tr_final_price_eur_strlini(self):
-        return self.tr_final_price_eur * self.eur_to_strlini
+        if currency == 'USD':
+            if location == 'EG':
+                return base_price
+            elif location == 'AE':
+                return base_price * self.usd_to_ae
+            elif location == 'TR':
+                return base_price * self.usd_to_tr
+        elif currency == 'EGP':
+            if location == 'EG':
+                return base_price * self.usd_to_egp
+            elif location == 'AE':
+                return base_price * self.usd_to_egp
+            elif location == 'TR':
+                return base_price * self.usd_to_egp
+        elif currency == 'EUR':
+            if location == 'EG':
+                return base_price * self.usd_to_eur
+            elif location == 'AE':
+                return base_price * self.usd_to_eur
+            elif location == 'TR':
+                return base_price * self.usd_to_eur
+        elif currency == 'TR':
+            if location == 'EG':
+                return base_price * self.usd_to_tr
+            elif location == 'AE':
+                return base_price * self.usd_to_tr
+            elif location == 'TR':
+                return base_price * self.usd_to_tr
+        elif currency == 'RS':
+            if location == 'EG':
+                return base_price * self.usd_to_rs
+            elif location == 'AE':
+                return base_price * self.usd_to_rs
+            elif location == 'TR':
+                return base_price * self.usd_to_rs
+        elif currency == 'AE':
+            if location == 'EG':
+                return base_price * self.usd_to_ae
+            elif location == 'AE':
+                return base_price * self.usd_to_ae
+            elif location == 'TR':
+                return base_price * self.usd_to_ae
+        elif currency == 'STRLINI':
+            if location == 'EG':
+                return base_price * self.usd_to_strlini
+            elif location == 'AE':
+                return base_price * self.usd_to_strlini
+            elif location == 'TR':
+                return base_price * self.usd_to_strlini
+        else:
+            raise ValueError('Invalid currency')
 
     class Meta:
         ordering = ['-time']
@@ -377,6 +252,14 @@ class PurchaseBillItem(models.Model):
 
 
 class SalesBill(models.Model):
+        
+    STATUS_CHOICES = [
+        ('DRAFT', 'DRAFT'),
+        ('SENT', 'SENT'),
+        ('VIEWED', 'VIEWED')
+        
+    ]
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='DRAFT')
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, null=True, blank=True)
     name = models.CharField(max_length=255)
     products = models.ManyToManyField(Product, through='SalesBillItem')
@@ -385,29 +268,30 @@ class SalesBill(models.Model):
 
 class SalesBillItem(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
-    sales_bill = models.ForeignKey(SalesBill, on_delete=models.CASCADE)
+    sales_bill = models.ForeignKey(SalesBill, related_name='items', on_delete=models.CASCADE)
     quantity = models.IntegerField()
     location = models.CharField(max_length=2, choices=[('EG', 'Egypt'), ('AE', 'UAE'), ('TR', 'Turkey')])
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)  # Ensure this field exists
 
 
-    def save(self, *args, **kwargs):
-        with transaction.atomic():
-            # Check stock availability before saving
-            if self.location == 'EG':
-                if self.product.eg_stock < self.quantity:
-                    raise ValidationError(f"Not enough stock for product {self.product.name} in Egypt.")
-                self.product.eg_stock -= self.quantity
-            elif self.location == 'AE':
-                if self.product.ae_stock < self.quantity:
-                    raise ValidationError(f"Not enough stock for product {self.product.name} in UAE.")
-                self.product.ae_stock -= self.quantity
-            elif self.location == 'TR':
-                if self.product.tr_stock < self.quantity:
-                    raise ValidationError(f"Not enough stock for product {self.product.name} in Turkey.")
-                self.product.tr_stock -= self.quantity
+    # def save(self, *args, **kwargs):
+    #     with transaction.atomic():
+    #         # Check stock availability before saving
+    #         if self.location == 'EG':
+    #             if self.product.eg_stock < self.quantity:
+    #                 raise ValidationError(f"Not enough stock for product {self.product.name} in Egypt.")
+    #             self.product.eg_stock -= self.quantity
+    #         elif self.location == 'AE':
+    #             if self.product.ae_stock < self.quantity:
+    #                 raise ValidationError(f"Not enough stock for product {self.product.name} in UAE.")
+    #             self.product.ae_stock -= self.quantity
+    #         elif self.location == 'TR':
+    #             if self.product.tr_stock < self.quantity:
+    #                 raise ValidationError(f"Not enough stock for product {self.product.name} in Turkey.")
+    #             self.product.tr_stock -= self.quantity
             
-            super().save(*args, **kwargs)
-            self.product.save()
+    #         super().save(*args, **kwargs)
+    #         self.product.save()
 
 
 
@@ -423,9 +307,15 @@ class ProductBill(models.Model):
         ('AE', 'AE'),
         ('STR', 'STR'),
     ]
-
+    STATUS_CHOICES = [
+        ('DRAFT', 'DRAFT'),
+        ('SENT', 'SENT'),
+        ('VIEWED', 'VIEWED')
+        
+    ]
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, null=True, blank=True)
     currency = models.CharField(max_length=3, choices=CURRENCY_CHOICES)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='DRAFT')
     discount = models.FloatField(default=0)  # Discount as a percentage
     location = models.CharField(max_length=3, choices=[('EG', 'Egypt'), ('AE', 'UAE'), ('TR', 'Turkey')])
     created_at = models.DateTimeField(auto_now_add=True)
@@ -470,9 +360,5 @@ class ProductBillItem(models.Model):
     def __str__(self):
         return f"{self.product.name} - {self.quantity} units"
 
-    def save(self, *args, **kwargs):
-        # Adjust stock based on location
-        self.product.adjust_stock(self.quantity, self.location)
-        super().save(*args, **kwargs)
 
 
