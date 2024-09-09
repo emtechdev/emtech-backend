@@ -6,6 +6,7 @@ from django.core.exceptions import ValidationError
 
 
 class UserProfile(models.Model):
+    
     USER_TYPE_CHOICES = [
         ('Admin', 'Admin'),
         ('Engineer', 'Engineer'),
@@ -105,7 +106,7 @@ class Product(models.Model):
 class ProductSpesfication(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='specifications')
     specification = models.ForeignKey(Specification, on_delete=models.CASCADE, null=True, blank=True)
-    value = models.CharField(max_length=255)  
+    value = models.CharField(max_length=255, default='xxx')  
 
     def __str__(self):
         return f"{self.product.name} - {self.specification.name}: {self.value}"
@@ -202,7 +203,7 @@ class Pricing(models.Model):
 
 class Trader(models.Model):
     company_name = models.CharField(max_length=255)
-    employee_name = models.CharField(max_length=255)
+    employee_name = models.CharField(max_length=255, unique=True)
     phone = models.CharField(max_length=255)
     location = models.CharField(max_length = 255)
     fax = models.CharField(max_length = 255)

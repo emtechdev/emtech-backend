@@ -10,6 +10,14 @@ from django.db.models import Q
 from .permissions import IsAdminOrEngineer
 from rest_framework.exceptions import MethodNotAllowed
 from django.db import transaction
+from rest_framework.decorators import api_view
+from rest_framework import generics
+from django.contrib.auth.models import User
+from rest_framework.parsers import MultiPartParser, FormParser
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import filters
+from .filters import ProductFilter
+from django_filters import rest_framework as filters
 
 
 from .models import (Category, SubCategory, Product, Pricing, ProductSpesfication,
@@ -28,18 +36,14 @@ from .serializers import (CategorySerializer, SubCategorySerializer,
                                        ProductSpesficationSerializer, TraderSerializer, CustomerSerializer)
 
 
-from rest_framework.decorators import api_view
-from rest_framework import generics
-from django.contrib.auth.models import User
-from rest_framework.parsers import MultiPartParser, FormParser
-from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import filters
-from .filters import ProductFilter
-from django_filters import rest_framework as filters
+
+
 
 class UserListView(generics.ListAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
+
+
 
 
 @api_view(['POST'])
@@ -53,14 +57,19 @@ def register(request):
         return Response(user_serializer.data, status=status.HTTP_201_CREATED)
     return Response(user_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+
+
+
 class CategoryViewset(viewsets.ModelViewSet):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
     permission_classes = [IsAdminOrEngineer]  
 
+
     def destroy(self, request, *args, **kwargs):
         # Override destroy method to prevent deletion
         raise MethodNotAllowed('DELETE')
+
 
     @action(detail=True, methods=['get'], url_name='get_subcategory', url_path='get_subcategory')
     def get_subcategory(self, request, pk=None):
@@ -72,6 +81,7 @@ class CategoryViewset(viewsets.ModelViewSet):
         subcategory = SubCategory.objects.filter(category=category).prefetch_related('category')
         serializer = SubCategorySerializer(subcategory, many=True)
         return Response(serializer.data)
+
 
     @action(detail=True, methods=['post'], url_name='add_subcategory', url_path='add_subcategory')
     def add_subcategory(self, request, pk=None):
@@ -96,9 +106,8 @@ class CategoryViewset(viewsets.ModelViewSet):
             return Response({'error': f'Failed to create SubCategory: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         return Response({'success': 'SubCategory added successfully.'}, status=status.HTTP_201_CREATED)
-
-
     
+
 
 
 class SubCategoryViewset(viewsets.ModelViewSet):
@@ -139,7 +148,6 @@ class SubCategoryViewset(viewsets.ModelViewSet):
         serializer = ProductSerializer(queryset, many=True)
         return Response(serializer.data)
     
-
 
     @action(detail=True, methods=['get'], url_name='filter_options', url_path='filter_options')
     def filter_options(self, request, pk=None):
@@ -249,6 +257,7 @@ class SubCategoryViewset(viewsets.ModelViewSet):
         serializer = ProductSerializer(product, many=True)
         return Response(serializer.data)
         
+
     @action(detail=True, methods=['post'], url_name='add_product', url_path='add_product')
     def add_product(self, request, pk=None):
         if pk is None:
@@ -303,13 +312,12 @@ class SubCategoryViewset(viewsets.ModelViewSet):
 
 
 
+
 class ProductViewset(viewsets.ModelViewSet):
     queryset = Product.objects.all().prefetch_related('specifications__specification')
     serializer_class = ProductSerializer
     paginate_by = 10
     permission_classes = [IsAdminOrEngineer]  
-
-
 
 
     def get_queryset(self):
@@ -337,8 +345,6 @@ class ProductViewset(viewsets.ModelViewSet):
         return queryset
     
 
-
-
     @action(detail=False, methods=['get'], url_name='filter_options', url_path='filter_options')
     def filter_options(self, request):
         filter_data = {
@@ -358,7 +364,6 @@ class ProductViewset(viewsets.ModelViewSet):
         return Response(filter_data)
 
 
-    
     @action(detail=True, methods=['post'])
     def add_selected_file(self, request, pk=None, url_name='add_selected_file', url_path='add_selected_file'):
         product = self.get_object()
@@ -388,7 +393,6 @@ class ProductViewset(viewsets.ModelViewSet):
             return Response(file_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
 
-
     @action(detail=True, methods=['post'])
     def add_selected_image(self, request, pk=None, url_name='add_selected_image', url_path='add_selected_image'):
         product = self.get_object()
@@ -403,6 +407,7 @@ class ProductViewset(viewsets.ModelViewSet):
         product.save()
         return Response({'status': 'image added'}, status=status.HTTP_200_OK)
 
+
     @action(detail=True, methods=['post'], url_name='add_image', url_path='add_image')
     def add_image(self, request, pk=None):
         product = self.get_object()
@@ -415,6 +420,7 @@ class ProductViewset(viewsets.ModelViewSet):
             return Response({'status': 'image added'}, status=status.HTTP_200_OK)
         else:
             return Response(image_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
     @action(detail=True, methods=['post'], url_name='add_pricing', url_path='add_pricing')
     def add_pricing(self, request, pk=None):
@@ -468,6 +474,7 @@ class ProductViewset(viewsets.ModelViewSet):
         serializer = PricingSerializer(pricing)
         return Response(serializer.data)
 
+
     @action(detail=True, methods=['get'], url_name='get_pricing', url_path='get_pricing')
     def get_pricing(self, request, pk=None):
         try:
@@ -482,6 +489,7 @@ class ProductViewset(viewsets.ModelViewSet):
         serializer = PricingSerializer(pricing, many=True, context={'location': location, 'currency': currency})
         return Response(serializer.data)
 
+
     @action(detail=True, methods=['get'], url_path='specifications')
     def list_specifications(self, request, pk=None):
         """List all specifications for the subcategory related to a specific product."""
@@ -493,11 +501,7 @@ class ProductViewset(viewsets.ModelViewSet):
         
         serializer = SpecificationSerializer(specifications, many=True)
         return Response(serializer.data)
-
-
-
-
-
+    
 
     @action(detail=True, methods=['post'], url_path='add_specification')
     def add_specification(self, request, pk=None):
@@ -561,6 +565,7 @@ class ProductViewset(viewsets.ModelViewSet):
 
         return Response(data, status=status.HTTP_200_OK)
 
+
     @action(detail=True, methods=['post'], url_path='add_product_specification')
     def add_product_specification(self, request, pk=None):
         """Add a new specification to a product."""
@@ -583,6 +588,7 @@ class ProductViewset(viewsets.ModelViewSet):
         )
 
         return Response({'success': f'Specification {specification.name} added to product {product.name} with value {value}.'}, status=status.HTTP_201_CREATED)
+    
 
 
 
@@ -592,17 +598,45 @@ class PricingViewset(viewsets.ModelViewSet):
     paginate_by = 10
     permission_classes = [IsAdminOrEngineer]  
 
+
+
+
 class ProductSpesficationViewset(viewsets.ModelViewSet):
-    queryset = ProductSpesfication.objects.all().prefetch_related('product')
+    queryset = ProductSpesfication.objects.all()
     serializer_class = ProductSpesficationSerializer
-    permission_classes = [IsAdminOrEngineer]  
 
 
+    @action(detail=True, methods=['patch'])
+    def update_value(self, request, pk=None):
+        try:
+            product_spec = ProductSpesfication.objects.get(pk=pk)
+        except ProductSpesfication.DoesNotExist:
+            return Response({'error': 'Product specification not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Extract value from request
+        value = request.data.get('value')
+
+        if value is None:
+            return Response({'error': 'No value provided.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Update the value
+        product_spec.value = value
+        product_spec.save()
+
+        # Serialize the updated instance
+        serializer = self.get_serializer(product_spec)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+
+
+    
 class FileViewset(viewsets.ModelViewSet):
     queryset = File.objects.all()
     serializer_class = FileSerializer
     parser_classes = [MultiPartParser, FormParser] 
     permission_classes = [IsAdminOrEngineer]  
+
+
 
 
 class ImageViewset(viewsets.ModelViewSet):
@@ -681,7 +715,6 @@ class PurchaseBillViewSet(viewsets.ModelViewSet):
     serializer_class = PurchaseBillSerializer
     paginate_by = 10
 
-    
     def create(self, request, *args, **kwargs):
         data = request.data
         items_data = data.pop('items', [])
@@ -700,7 +733,7 @@ class PurchaseBillViewSet(viewsets.ModelViewSet):
                 )
 
                 # Get all the product IDs and fetch them
-                product_ids = [item['product']['id'] for item in items_data]
+                product_ids = [item['product']['id'] if isinstance(item['product'], dict) else item['product'] for item in items_data]
                 products = Product.objects.filter(id__in=product_ids)
 
                 if len(products) != len(product_ids):
@@ -708,7 +741,8 @@ class PurchaseBillViewSet(viewsets.ModelViewSet):
 
                 # Create PurchaseBillItem for each item
                 for item_data in items_data:
-                    product = products.get(id=item_data['product']['id'])
+                    product_id = item_data['product']['id'] if isinstance(item_data['product'], dict) else item_data['product']
+                    product = products.get(id=product_id)
                     PurchaseBillItem.objects.create(
                         purchase_bill=purchase_bill,
                         product=product,
@@ -730,7 +764,8 @@ class PurchaseBillViewSet(viewsets.ModelViewSet):
         # Return the created purchase bill data
         serializer = self.get_serializer(purchase_bill)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
-    
+
+
 
 class SalesBillViewSet(viewsets.ModelViewSet):
     queryset = SalesBill.objects.all().prefetch_related('products')
@@ -800,6 +835,7 @@ class SalesBillViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(sales_bill)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
+
     @action(detail=False, methods=['post'])
     def adjust_stock(self, request):
         """
@@ -837,10 +873,12 @@ class SalesBillViewSet(viewsets.ModelViewSet):
 
 
 
+
 class ProductBillViewSet(viewsets.ModelViewSet):
     queryset = ProductBill.objects.all()
     serializer_class = ProductBillSerializer
     paginate_by = 10
+
 
     @action(detail=False, methods=['post'])
     def create_with_products(self, request):
@@ -924,6 +962,7 @@ class ProductBillViewSet(viewsets.ModelViewSet):
             serializer = self.get_serializer(product_bill)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
+
     def get_available_stock(self, product, location):
         """ Return available stock based on location. """
         if location == 'EG':
@@ -935,6 +974,7 @@ class ProductBillViewSet(viewsets.ModelViewSet):
         else:
             raise ValueError('Invalid location')
         
+
     @action(detail=False, methods=['post'])
     def adjust_stock(self, request):
         """
@@ -972,9 +1012,12 @@ class ProductBillViewSet(viewsets.ModelViewSet):
 
 
 
+
 class SpesficationViewSet(viewsets.ModelViewSet):
     queryset = Specification.objects.all()
     serializer_class = SpecificationSerializer
+
+
 
 
 class TraderViewset(viewsets.ModelViewSet):
@@ -983,9 +1026,11 @@ class TraderViewset(viewsets.ModelViewSet):
 
 
 
+
 class CustomerViewset(viewsets.ModelViewSet):
     queryset = Customer.objects.all()
     serializer_class = CustomerSerializer
+
 
 
 
